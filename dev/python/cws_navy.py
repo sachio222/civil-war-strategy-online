@@ -1017,42 +1017,54 @@ def integrity(g: 'GameState') -> None:
 
 def shipicon(g: 'GameState', who: int, flag: int) -> None:
     """Draw ship icon. flag=1: wooden, flag=2: ironclad.
-    Uses screen._last_x/_last_y from preceding PSET as position."""
+
+    Uses screen._last_x/_last_y from preceding PSET as position.
+    Exact port of QB64 SUB shipicon (lines 490-521).
+    """
     s = g.screen
     x = s._last_x - 10                                     # L491
     y = s._last_y - 10
 
-    # Oval hull (simplified from CIRCLE with aspect 0.4)     L492-494
-    # Draw an ellipse approximation: width=18, height=7
-    s.line(x - 9, y - 4, x + 9, y + 4, 9, "B")            # inner
-    s.line(x - 9, y - 4, x + 9, y + 4, 10, "B")           # outer
+    # Hull ellipse                                           L492-494
+    s.circle(x, y, 18, 9, aspect=0.4)                       # L492: filled
+    s.paint(x + 3, y + 4, 9, 9)                             # L493
+    s.circle(x, y, 18, 10, aspect=0.4)                      # L494: outline
 
     if flag == 1:                                           # L496: wooden ship
-        # Simplified: draw hull shape and mast
-        s.line(x - 10, y + 3, x + 10, y + 3, 4)           # hull line
-        s.line(x, y - 8, x, y + 3, 0)                      # mast
-        s.line(x, y - 8, x + 7, y - 3, 7)                  # sail
-        # Jack (flag)
-        if who == 1:                                        # L515-516
-            s.line(x + 4, y - 8, x + 7, y - 8, 4)
-            s.line(x + 4, y - 7, x + 7, y - 7, 1)
-        else:                                               # L517-518
-            s.line(x + 4, y - 8, x + 7, y - 8, 4)
-            s.line(x + 4, y - 7, x + 7, y - 7, 3)
+        # L497-499: ship detail via DRAW commands
+        # CIRCLE leaves cursor at (x, y)
+        s.draw("BF5R5D1C4L20C0H1R22E1L9")                  # L497
+        s.draw("BL6")
+        s.draw("C0L10H1L1H2")
+        s.draw("BR9D2")
+        s.draw("C0U9")                                      # L498
+        s.draw("BR13")
+        s.draw("C0D9BU7R3")
+        s.draw("C0L7BL5C0L7BD3BL2BD1BL1BD1C0R11BR3")       # L499
+        s.draw("C0R10BL12")
+        # Jack (flag)                                        L500-501
+        s.pset(x + 8, y - 1, s._fg_color)
+        _jack(s, who)
 
     elif flag == 2:                                         # L503: ironclad
-        # Simplified: draw low hull and turret
-        s.line(x - 10, y + 2, x + 10, y + 2, 8)           # hull line
-        s.line(x - 8, y + 3, x + 8, y + 3, 0)             # waterline
-        s.line(x - 3, y - 2, x + 3, y + 1, 8, "BF")       # turret
-        s.line(x + 3, y, x + 8, y, 0)                      # gun
-        # Jack
-        if who == 1:
-            s.line(x - 3, y - 4, x, y - 4, 4)
-            s.line(x - 3, y - 3, x, y - 3, 1)
-        else:
-            s.line(x - 3, y - 4, x, y - 4, 4)
-            s.line(x - 3, y - 3, x, y - 3, 3)
+        # L504-508: ironclad detail via DRAW commands
+        s.draw("BL15BD4E1")                                  # L504
+        s.draw("C0R30H1L2C8L24E1R1")                        # L505
+        s.draw("C8E1R18F1L19BR4C6C5C4C3C2C1")               # L506
+        s.draw("C0R2BR3C0R2BR3C0R2")
+        s.draw("BU3BL10D1")                                  # L507
+        s.draw("C0U4R1D4BR9")
+        # Jack                                               L508-509
+        s.pset(x + 8, y - 1, s._fg_color)
+        _jack(s, who)
+
+
+def _jack(s, who: int) -> None:
+    """Draw the flag (jack) on a ship icon. Port of GOSUB jack (L513-520)."""
+    if who == 1:                                            # L515-516: Union
+        s.draw("C4R7BU1C7L6BU1C1R3C4R3BU1C7L2BL1C1L3")
+    else:                                                   # L517-518: Confederate
+        s.draw("C4R4U1L4U1R4U1L4C3F4BU4C3G4BD2BR2BU1")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1103,35 +1115,222 @@ def ships(g: 'GameState') -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def ironclad(g: 'GameState') -> None:
-    """Ironclad illustration. Simplified for monochrome."""
+    """Ironclad illustration. Exact port of QB64 SUB ironclad (L538-641)."""
     s = g.screen
     # Sky and water                                         L540-541
-    s.line(1, 240, 639, 309, 3, "BF")                       # L540: cyan sky
-    s.line(1, 309, 639, 479, 1, "BF")                       # L541: blue water
+    s.line(1, 240, 639, 309, 3, "BF")                       # L540
+    s.line(639, 309, 1, 479, 1, "BF")                       # L541
 
-    # Simplified hull silhouette
+    # ── Lower hull outline ──                               L543-546
     s.color(7)
-    # Main hull
-    s.line(86, 363, 478, 368, 7)
-    s.line(78, 353, 86, 363, 7)
-    s.line(78, 353, 161, 337, 7)
-    s.line(161, 337, 406, 326, 7)
-    s.line(406, 326, 478, 368, 7)
-    s.line(86, 363, 478, 368, 8, "BF")                     # fill hull
+    s.line(478, 368, 174, 389, 7)                            # L544
+    s.line_to(86, 363, 7)
+    s.line_to(78, 353, 7)
+    s.line_to(161, 337, 7)
+    s.line_to(162, 337, 7)
+    s.line_to(406, 326, 7)
+    s.line_to(478, 368, 7)                                   # L545
+    s.paint(300, 350, 7)                                     # L546
 
-    # Turret
-    s.line(297, 310, 340, 260, 8, "BF")
-    s.line(297, 310, 340, 310, 0)
-    s.line(297, 260, 340, 260, 0)
+    # ── Upper hull / casemate outline ──                    L548-554
+    s.color(15)
+    s.line(427, 358, 203, 373, 15)                           # L549
+    s.line_to(247, 322, 15)
+    s.line_to(205, 312, 15)
+    s.line_to(167, 342, 15)                                  # L550
+    s.line_to(203, 373, 15)
+    s.line_to(246, 323, 15)
+    s.line_to(401, 318, 15)
+    s.line_to(427, 358, 15)                                  # L551
+    s.line_to(400, 318, 15)
+    s.line_to(363, 306, 15)
+    s.line_to(204, 312, 15)
+    s.paint(300, 315, 7, 15)                                 # L552
+    s.paint(200, 325, 8, 15)                                 # L553
+    s.paint(300, 325, 8, 15)                                 # L554
 
-    # Smokestack
-    s.line(314, 255, 330, 314, 8, "BF")
+    # ── Bow / stern detail ──                               L556-562
+    s.color(7)
+    s.line(77, 353, 76, 363, 7)                              # L557
+    s.line_to(84, 370, 7)
+    s.line_to(85, 363, 7)
+    s.line_to(84, 369, 7)                                    # L558
+    s.line_to(169, 396, 7)
+    s.line_to(170, 389, 7)
+    s.line_to(168, 396, 7)
+    s.line_to(477, 375, 7)                                   # L559
+    s.line_to(478, 369, 7)
+    s.paint(80, 363, 7)                                      # L560
+    s.paint(150, 385, 8, 7)                                  # L561
+    s.paint(190, 390, 0, 7)                                  # L562
 
-    # Waterline
-    s.line(70, 361, 490, 375, 11)
+    # ── Smokestack silhouette ──                            L564-575
+    s.color(0)
+    s.line(299, 261, 294, 254, 0)                            # L565
+    s.line_to(303, 250, 0)
+    s.line_to(299, 243, 0)
+    s.line_to(316, 243, 0)                                   # L566
+    s.line_to(321, 247, 0)
+    s.line_to(326, 241, 0)
+    s.line_to(335, 240, 0)
+    s.line_to(345, 240, 0)                                   # L567
+    s.line_to(357, 246, 0)
+    s.line_to(366, 241, 0)
+    s.line_to(381, 245, 0)
+    s.line_to(384, 253, 0)                                   # L568
+    s.line_to(398, 248, 0)
+    s.line_to(410, 248, 0)
+    s.line_to(413, 259, 0)
+    s.line_to(424, 264, 0)                                   # L569
+    s.line_to(425, 254, 0)
+    s.line_to(444, 258, 0)
+    s.line_to(445, 270, 0)
+    s.line_to(436, 277, 0)                                   # L570
+    s.line_to(426, 281, 0)
+    s.line_to(418, 270, 0)
+    s.line_to(411, 272, 0)
+    s.line_to(400, 263, 0)                                   # L571
+    s.line_to(392, 275, 0)
+    s.line_to(374, 270, 0)
+    s.line_to(370, 262, 0)
+    s.line_to(357, 257, 0)                                   # L572
+    s.line_to(345, 256, 0)
+    s.line_to(335, 257, 0)
+    s.line_to(335, 262, 0)
+    s.line_to(324, 257, 0)                                   # L573
+    s.line_to(317, 258, 0)
+    s.line_to(309, 257, 0)
+    s.line_to(305, 262, 0)
+    s.line_to(300, 261, 0)                                   # L574
+    s.paint(320, 250, 0)                                     # L575
 
-    # Flag
-    s.line(95, 297, 115, 315, 4, "BF")
+    # ── Pilot house ──                                      L577-580
+    s.line(211, 341, 196, 357, 0)                            # L577
+    s.line_to(179, 346, 0)
+    s.line_to(194, 335, 0)                                   # L578
+    s.line_to(211, 341, 0)
+    s.paint(190, 350, 0)                                     # L579
+    s.line(211, 341, 225, 330, 7)                            # L580
+    s.line_to(209, 324, 7)
+    s.line_to(188, 340, 0)
+
+    # ── Gun ports ──                                        L582-588
+    for k in range(0, 4):
+        x = 260 + 40 * k
+        y = 344 - 2 * k
+        s.line(x, y, x + 2, y + 20, 0)                      # L584
+        s.line_to(x + 17, y + 19, 0)
+        s.line_to(x + 15, y, 0)
+        s.line_to(x, y, 0)                                   # L585
+        s.paint(x + 10, 350, 0)                              # L586
+        s.line(x, y, x + 15, y, 7)                           # L587
+        s.line_to(x + 13, y - 14, 7)
+        s.line_to(x - 2, y - 14, 7)
+        s.line_to(x, y, 7)
+
+    # ── Armor plating lines ──                              L590-595
+    s.color(8)
+    s.line(168, 340, 85, 355, 8)                             # L591
+    s.line_to(91, 361, 8)
+    s.line_to(173, 386, 8)
+    s.line_to(466, 366, 8)
+    s.line_to(414, 334, 8)                                   # L592
+    s.line(358, 307, 382, 315, 8)                            # L594
+    s.line_to(249, 320, 8)
+    s.line_to(220, 314, 8)
+    s.line_to(358, 307, 8)                                   # L595
+
+    # ── Turret stacks ──                                    L597-602
+    s.line(314, 255, 330, 314, 8, "BF")                      # L597
+    s.line(297, 310, 309, 262, 8, "BF")                      # L598
+    s.line(323, 257, 329, 314, 0, "BF")                      # L599
+    s.line(303, 310, 308, 262, 0, "BF")                      # L600
+    s.line(319, 257, 320, 315, 15, "BF")                     # L601
+    s.line(300, 262, 301, 312, 15, "BF")                     # L602
+
+    # ── Flagstaff ──                                        L604-607
+    s.line(96, 297, 94, 357, 8, "BF")                        # L604
+    s.line(98, 299, 106, 317, 4, "BF")                       # L605
+    s.line(107, 304, 110, 319, 9, "BF")                      # L606
+    s.line(111, 300, 114, 312, 15, "BF")                     # L607
+
+    # ── Rivets / portholes ──                               L609-614
+    y = 387
+    for x in range(180, 471, 15):                            # L609
+        y -= 1
+        s.line(x, y, x + 1, y + 1, 0, "BF")
+    y = 360
+    for x in range(90, 171, 15):                             # L610
+        y += 4
+        s.line(x, y, x + 1, y + 1, 0, "BF")
+    y = 373
+    for x in range(216, 251, 7):                             # L611
+        y -= 8
+        s.line(x, y, x + 1, y + 1, 0, "BF")
+    y = 373
+    for x in range(205, 244, 7):                             # L612
+        y -= 8
+        s.line(x, y, x + 1, y + 1, 0, "BF")
+    y = 350
+    for x in range(172, 201, 9):                             # L613
+        y -= 8
+        s.line(x, y, x + 1, y + 1, 0, "BF")
+    y = 310
+    for x in range(397, 426, 8):                             # L614
+        y += 11
+        s.line(x, y, x + 1, y + 1, 0, "BF")
+
+    # ── Water / waves (port side) ──                        L615-620
+    s.color(11)
+    s.line(70, 361, 68, 369, 11)                             # L616
+    s.line_to(106, 384, 11)
+    s.line_to(166, 394, 11)
+    s.line_to(210, 385, 11)                                  # L617
+    s.line_to(255, 391, 11)
+    s.line_to(219, 394, 11)
+    s.line_to(242, 402, 11)                                  # L618
+    s.line_to(202, 405, 11)
+    s.line_to(162, 402, 11)
+    s.line_to(121, 387, 11)                                  # L619
+    s.paint(190, 400, 3, 11)                                 # L620
+
+    # ── Water / waves (starboard side) ──                   L622-627
+    s.line(331, 391, 365, 387, 11)                           # L622
+    s.line_to(403, 375, 11)                                  # L623
+    s.line_to(446, 382, 11)
+    s.line_to(471, 384, 11)
+    s.line_to(446, 391, 11)                                  # L624
+    s.line_to(478, 395, 11)
+    s.line_to(449, 407, 11)
+    s.line_to(445, 406, 11)                                  # L625
+    s.line_to(414, 395, 11)
+    s.line_to(412, 395, 11)
+    s.line_to(369, 396, 11)                                  # L626
+    s.line_to(323, 391, 11)
+    s.paint(390, 390, 3, 11)                                 # L627
+
+    # ── Distant waves / horizon ──                          L629-632
+    s.line(476, 379, 531, 372, 11)                           # L629
+    s.line(420, 329, 497, 327, 3)                            # L630
+    s.line_to(464, 340, 3)
+    s.line_to(535, 343, 3)                                   # L631
+    s.line(141, 337, 67, 349, 11)                            # L632
+    s.line_to(58, 372, 11)
+
+    # ── Wake (far right) ──                                 L634-637
+    s.line(525, 405, 587, 392, 11)                           # L634
+    s.line_to(628, 402, 11)
+    s.line_to(588, 415, 11)
+    s.line_to(563, 409, 11)                                  # L635
+    s.line_to(562, 409, 11)
+    s.line_to(527, 423, 11)
+    s.line_to(540, 410, 11)                                  # L636
+    s.line_to(523, 406, 11)
+    s.paint(560, 405, 9, 11)                                 # L637
+
+    # ── Small detail spots ──                               L639-640
+    s.line(106, 320, 101, 318, 0, "BF")                      # L639
+    s.line(110, 313, 114, 315, 0, "BF")                      # L640
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1140,45 +1339,263 @@ def ironclad(g: 'GameState') -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def schooner(g: 'GameState') -> None:
-    """Schooner illustration. Simplified for monochrome."""
+    """Schooner illustration. Exact port of QB64 SUB schooner (L642-792)."""
+    import random
     s = g.screen
     # Sky and water                                         L644-645
     s.line(1, 240, 639, 309, 3, "BF")                       # L644
-    s.line(1, 309, 639, 479, 1, "BF")                       # L645
+    s.line(639, 309, 1, 479, 1, "BF")                       # L645
 
-    # Masts                                                 L647-648
+    # ── Masts and hull (brown) ──                           L646-655
     s.color(6)
-    s.line(245, 241, 245, 400, 6)                           # fore mast
-    s.line(371, 241, 371, 400, 6)                           # main mast
+    s.line(243, 241, 247, 395, 6, "BF")                     # L647: fore mast
+    s.line(369, 395, 373, 241, 6, "BF")                     # L648: main mast
+    s.line(183, 395, 435, 400, 6, "BF")                     # L649: deck
+    s.line(188, 395, 107, 356, 6)                            # L650: bow
+    s.line_to(106, 360, 6)
+    s.line_to(173, 392, 6)
+    s.line_to(182, 419, 6)                                   # L651
+    s.line_to(191, 429, 6)
+    s.line_to(230, 426, 6)
+    s.line_to(275, 432, 6)
+    s.line_to(314, 418, 6)                                   # L652
+    s.line_to(354, 431, 6)
+    s.line_to(390, 421, 6)
+    s.line_to(390, 422, 6)
+    s.line_to(413, 427, 6)                                   # L653
+    s.line_to(437, 419, 6)
+    s.line_to(447, 401, 6)
+    s.line_to(447, 377, 6)
+    s.line_to(401, 377, 6)                                   # L654
+    s.line_to(399, 396, 6)
+    s.paint(300, 415, 6)                                     # L655
 
-    # Hull                                                  L649-654
-    s.line(183, 395, 435, 400, 6)                           # deck
-    s.line(188, 395, 107, 356, 6)                           # bow
-    s.line(107, 356, 173, 392, 6)                           # bow lower
-    s.line(435, 400, 447, 377, 6)                           # stern
-    s.line(183, 395, 435, 400, 6, "BF")                    # fill hull area
+    # Boom / gaff (brown outlines)                           L657-663
+    s.line(378, 290, 434, 262, 6)                            # L657
+    s.line_to(432, 258, 6)
+    s.line_to(377, 286, 6)
+    s.line_to(378, 290, 6)                                   # L658
+    s.paint(380, 286, 6)                                     # L659
+    s.line(378, 346, 456, 336, 6)                            # L661
+    s.line_to(457, 340, 6)
+    s.line_to(376, 350, 6)
+    s.line_to(378, 346, 6)                                   # L662
+    s.paint(382, 347, 6)                                     # L663
 
-    # Simplified sails                                      L666-695
+    # ── Sails (white) ──                                    L666-695
     s.color(15)
-    # Forward sail
-    s.line(109, 355, 239, 256, 15)
-    s.line(109, 355, 131, 361, 15)
-    s.line(131, 361, 239, 259, 15)
+    # Jib                                                    L667-669
+    s.line(109, 355, 131, 361, 15)                           # L667
+    s.line_to(239, 259, 15)                                  # L668
+    s.line_to(239, 256, 15)
+    s.line_to(109, 355, 15)
+    s.paint(140, 340, 15)                                    # L669
 
-    # Main sail
-    s.line(379, 290, 433, 264, 15)
-    s.line(433, 264, 435, 289, 15)
-    s.line(435, 289, 406, 342, 15)
-    s.line(406, 342, 379, 290, 15)
+    # Fore topsail                                           L671-675
+    s.line(238, 268, 256, 273, 15)                           # L671
+    s.line_to(241, 295, 15)                                  # L672
+    s.line_to(240, 309, 15)
+    s.line_to(250, 322, 15)
+    s.line_to(226, 321, 15)                                  # L673
+    s.line_to(220, 299, 15)
+    s.line_to(227, 284, 15)
+    s.line_to(239, 269, 15)                                  # L674
+    s.paint(245, 275, 15)                                    # L675
 
-    # Portholes
-    s.color(0)
+    # Fore lower sail                                        L677-680
+    s.line(232, 327, 225, 350, 15)                           # L677
+    s.line_to(233, 385, 15)
+    s.line_to(251, 387, 15)
+    s.line_to(242, 352, 15)                                  # L678
+    s.line_to(243, 345, 15)
+    s.line_to(249, 333, 15)
+    s.line_to(232, 327, 15)                                  # L679
+    s.paint(235, 335, 15)                                    # L680
+
+    # Main topsail                                           L682-685
+    s.line(381, 268, 368, 286, 15)                           # L682
+    s.line_to(366, 303, 15)                                  # L683
+    s.line_to(374, 317, 15)
+    s.line_to(350, 315, 15)
+    s.line_to(347, 297, 15)                                  # L684
+    s.line_to(361, 264, 15)
+    s.line_to(381, 268, 15)
+    s.paint(365, 275, 15)                                    # L685
+
+    # Main lower sail                                        L687-691
+    s.line(379, 335, 360, 328, 15)                           # L687
+    s.line_to(351, 347, 15)                                  # L688
+    s.line_to(355, 367, 15)
+    s.line_to(357, 382, 15)                                  # L689
+    s.line_to(378, 386, 15)
+    s.line_to(368, 373, 15)
+    s.line_to(369, 345, 15)                                  # L690
+    s.line_to(379, 334, 15)
+    s.paint(360, 345, 15)                                    # L691
+
+    # Spanker (main gaff sail)                               L693-695
+    s.line(379, 290, 406, 342, 15)                           # L693
+    s.line_to(456, 336, 15)
+    s.line_to(435, 289, 15)
+    s.line_to(433, 264, 15)                                  # L694
+    s.line_to(378, 291, 15)
+    s.paint(410, 325, 15)                                    # L695
+
+    # ── Portholes ──                                        L697-700
     for k in range(260, 401, 25):
-        s.circle(k, 405, 3, 0)
+        s.circle(k, 405, 3, 0)                              # L698
+        s.paint(k, 405, 0)                                   # L699
 
-    # Water effects
+    # ── Waves (light cyan) ──                               L702-729
     s.color(11)
-    s.line(247, 437, 290, 422, 11)
-    s.line(290, 422, 314, 416, 11)
-    s.line(362, 428, 385, 419, 11)
-    s.line(385, 419, 394, 421, 11)
+    # Wave group 1 (port bow)                                L703-707
+    s.line(247, 437, 290, 422, 11)                           # L703
+    s.line_to(314, 416, 11)
+    s.line_to(334, 423, 11)
+    s.line_to(305, 432, 11)                                  # L704
+    s.line_to(287, 430, 11)
+    s.line_to(286, 430, 11)
+    s.line_to(267, 441, 11)                                  # L705
+    s.line_to(225, 439, 11)
+    s.line_to(225, 438, 11)
+    s.line_to(246, 437, 11)                                  # L706
+    s.paint(300, 425, 3, 11)                                 # L707
+
+    # Wave group 2 (starboard)                               L709-712
+    s.line(362, 428, 385, 419, 11)                           # L709
+    s.line_to(394, 421, 11)                                  # L710
+    s.line_to(375, 437, 11)
+    s.line_to(354, 432, 11)
+    s.line_to(345, 429, 11)                                  # L711
+    s.line_to(362, 428, 11)
+    s.paint(370, 430, 3, 11)                                 # L712
+
+    # Distant wave (left)                                    L714-716
+    s.line(16, 383, 43, 379, 11)                             # L714
+    s.line_to(44, 379, 11)                                   # L715
+    s.line_to(78, 385, 11)
+    s.line_to(16, 384, 11)
+    s.paint(40, 383, 9, 11)                                  # L716
+
+    # Wake (center)                                          L718-720
+    s.line(173, 440, 204, 431, 11)                           # L718
+    s.line_to(227, 431, 11)
+    s.line_to(210, 439, 11)
+    s.line_to(175, 441, 11)                                  # L719
+    s.line_to(173, 440, 11)
+    s.paint(200, 435, 11)                                    # L720
+
+    # Wake (right)                                           L722-724
+    s.line(445, 417, 552, 409, 11)                           # L722
+    s.line_to(599, 416, 11)                                  # L723
+    s.line_to(539, 415, 11)
+    s.line_to(468, 415, 11)
+    s.paint(550, 411, 9, 11)                                 # L724
+
+    # Small distant wave                                     L726-729
+    s.line(509, 349, 540, 351, 11)                           # L726
+    s.line_to(541, 351, 11)                                  # L727
+    s.line_to(517, 343, 11)
+    s.line_to(509, 349, 11)
+    s.paint(520, 347, 3, 11)                                 # L729
+
+    # Horizon lines                                          L731-735
+    s.line(577, 342, 598, 343, 11)                           # L731
+    s.line(275, 340, 287, 342, 9)                            # L732
+    s.line(149, 346, 188, 345, 9)                            # L734
+    s.line(24, 337, 72, 338, 3)                              # L735
+
+    # ── Sail trim lines (gray) ──                           L737-757
+    s.color(7)
+    # Fore lower trim                                        L738-740
+    s.line(227, 354, 236, 383, 7)                            # L738
+    s.line_to(246, 386, 7)
+    s.line_to(239, 356, 7)
+    s.line_to(233, 357, 7)                                   # L739
+    s.line_to(227, 354, 7)
+    s.paint(238, 365, 7)                                     # L740
+
+    # Fore top trim                                          L742-744
+    s.line(223, 301, 231, 321, 7)                            # L742
+    s.line_to(244, 321, 7)
+    s.line_to(237, 308, 7)
+    s.line_to(240, 303, 7)
+    s.line_to(223, 301, 7)                                   # L743
+    s.paint(236, 312, 7)                                     # L744
+
+    # Main top trim                                          L746-748
+    s.line(349, 299, 353, 313, 7)                            # L746
+    s.line_to(370, 316, 7)
+    s.line_to(363, 302, 7)                                   # L747
+    s.line_to(364, 303, 7)
+    s.line_to(350, 300, 7)
+    s.paint(360, 310, 7)                                     # L748
+
+    # Main lower trim                                        L750-752
+    s.line(356, 359, 359, 380, 7)                            # L750
+    s.line_to(375, 385, 7)
+    s.line_to(366, 372, 7)
+    s.line_to(368, 364, 7)
+    s.line_to(356, 360, 7)                                   # L751
+    s.paint(360, 370, 7)                                     # L752
+
+    # Spanker trim                                           L754-757
+    s.line(393, 302, 394, 302, 7)                            # L754
+    s.line_to(409, 323, 7)
+    s.line_to(417, 309, 7)                                   # L755
+    s.line_to(434, 325, 7)
+    s.line_to(429, 304, 7)
+    s.line_to(428, 291, 7)
+    s.line_to(410, 296, 7)                                   # L756
+    s.line_to(400, 290, 7)
+    s.line_to(394, 302, 7)
+    s.paint(420, 300, 7)                                     # L757
+
+    # ── Rigging (black) ──                                  L759-770
+    s.color(0)
+    s.line(247, 256, 291, 394, 0)                            # L760
+    s.line(247, 256, 284, 394, 0)                            # L761
+    s.line(244, 256, 191, 394, 0)                            # L762
+    s.line(244, 256, 184, 394, 0)                            # L763
+    s.line(371, 257, 321, 394, 0)                            # L765
+    s.line(371, 257, 314, 394, 0)                            # L766
+    s.line(375, 257, 431, 378, 0)                            # L767
+    s.line(375, 257, 438, 378, 0)                            # L768
+    s.line(375, 258, 434, 259, 0)                            # L770
+
+    # ── Stern / bow decorations (dark gray) ──              L772-781
+    s.color(8)
+    s.line(180, 400, 183, 415, 8)                            # L773
+    s.line_to(192, 426, 8)
+    s.line_to(212, 426, 8)
+    s.line_to(202, 421, 8)                                   # L774
+    s.line_to(210, 414, 8)
+    s.line_to(191, 408, 8)
+    s.line_to(201, 402, 8)
+    s.line_to(180, 400, 8)                                   # L775
+    s.paint(185, 410, 8)                                     # L776
+
+    s.line(445, 381, 445, 400, 8)                            # L778
+    s.line_to(435, 417, 8)
+    s.line_to(413, 424, 8)                                   # L779
+    s.line_to(422, 413, 8)
+    s.line_to(418, 404, 8)
+    s.line_to(434, 401, 8)
+    s.line_to(427, 393, 8)                                   # L780
+    s.line_to(435, 391, 8)
+    s.line_to(437, 384, 8)
+    s.line_to(445, 382, 8)
+    s.paint(440, 388, 8)                                     # L781
+
+    # ── Small wave lines ──                                 L783-786
+    s.line(186, 425, 155, 429, 11)                           # L783
+    s.line_to(146, 433, 11)
+    s.line(150, 417, 116, 425, 11)                           # L784
+    s.line(123, 452, 153, 460, 11)                           # L785
+    s.line(297, 463, 319, 468, 11)                           # L786
+
+    # ── Random cannon flash sparks ──                       L788-791
+    for _ in range(1, 5):                                    # L788
+        rx = 185 + int(200 * random.random())                # L789
+        s.line(rx, 390, rx + 2, 392, 12, "BF")              # L790
+        s.line(rx - 2, 392, rx + 4, 394, 8, "BF")

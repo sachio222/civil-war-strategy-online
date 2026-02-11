@@ -57,7 +57,10 @@ def _clear_arrow(g: 'GameState') -> None:
     pos = getattr(g, '_arrow_save_pos', None)
     img = getattr(g, '_arrow_save', None)
     if pos and img is not None:
+        print(f"[ARROW] clearing at {pos}, img size={img.get_size()}")
         g.screen.put_image(pos[0], pos[1], img)
+    else:
+        print(f"[ARROW] nothing to clear (pos={pos}, img={'set' if img is not None else 'None'})")
     g._arrow_save = None
     g._arrow_save_pos = None
 
@@ -156,6 +159,7 @@ def icon(g: 'GameState', from_: int, dest: int, kind: int) -> None:
         _clear_arrow(g)
         g._arrow_save = s.get_image(x - 8, y - 8, x + 10, y + 7)  # L71
         g._arrow_save_pos = (x - 8, y - 8)
+        print(f"[ARROW] saved at ({x-8},{y-8}), from_={from_}, drawing arrow")
         x = x + 7                                         # L72
         y = y + 5
         # L80: PAINT (x-2, y-1), 15, 12 — fill interior white

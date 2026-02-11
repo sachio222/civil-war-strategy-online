@@ -183,13 +183,35 @@ class PygameScreen:
             ey = int(y1 + dist * sy)
             pygame.draw.line(self.surface, rgb, (px, py), (ex, ey))
 
-    def circle(self, x: int, y: int, r: int, c: int, fill: bool = False) -> None:
-        """Draw circle."""
+    def circle(self, x: int, y: int, r: int, c: int,
+               fill: bool = False, aspect: float = 1.0) -> None:
+        """Draw circle or ellipse. aspect < 1 squashes vertically (QBasic style).
+
+        QBasic CIRCLE: aspect < 1 → rx = r, ry = r * aspect
+                       aspect > 1 → rx = r / aspect, ry = r
+        """
         rgb = self._rgb(c)
-        if fill:
-            pygame.draw.circle(self.surface, rgb, (x, y), r)
+        if aspect == 1.0:
+            if fill:
+                pygame.draw.circle(self.surface, rgb, (x, y), r)
+            else:
+                pygame.draw.circle(self.surface, rgb, (x, y), r, 1)
         else:
-            pygame.draw.circle(self.surface, rgb, (x, y), r, 1)
+            # Ellipse via bounding rect
+            if aspect < 1.0:
+                rx = r
+                ry = max(1, int(r * aspect))
+            else:
+                rx = max(1, int(r / aspect))
+                ry = r
+            rect = (x - rx, y - ry, 2 * rx + 1, 2 * ry + 1)
+            if fill:
+                pygame.draw.ellipse(self.surface, rgb, rect)
+            else:
+                pygame.draw.ellipse(self.surface, rgb, rect, 1)
+        # QBasic CIRCLE moves the graphics cursor to the center
+        self._last_x = x
+        self._last_y = y
 
     def polygon(self, points, c: int, fill: bool = False) -> None:
         """Draw a polygon. fill=True fills the interior (like PAINT)."""

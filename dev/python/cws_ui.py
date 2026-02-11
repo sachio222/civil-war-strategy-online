@@ -325,6 +325,10 @@ def menu(g: 'GameState', switch: int) -> int:
 
     # ── sel1: main selection loop ─────────────────────────────────  L116+
     while True:
+        # Always clean any leftover arrow before drawing a new one
+        from cws_map import _clear_arrow
+        _clear_arrow(g)
+
         # Switch-specific highlighting at sel1                       # L117-155
         if switch == 1:                                              # L118
             icon(g, g.array[row], 0, 7)
@@ -486,13 +490,10 @@ def menu(g: 'GameState', switch: int) -> int:
 
             # Clean up old row's icon                                # L173-178
             from cws_map import _clear_arrow
-            _clear_arrow(g)                                          # always erase arrow
-            if switch in (1, 2, 9):                                  # L174
+            _clear_arrow(g)                                          # erase arrow (kinds 9)
+            if switch == 1:                                          # L174 (kind 7 highlight box)
                 if g.mtx[row1] != "EXIT":                            # L175
                     icon(g, g.array[row1], 0, 8)
-            elif switch == 6:                                        # L176
-                if g.mtx[row1] != "EXIT":                            # L177
-                    icon(g, g.armyloc[g.array[row1]], 0, 8)
 
             g.choose = row                                           # L180
             flag = 0  # reset for next iteration
@@ -508,11 +509,9 @@ def menu(g: 'GameState', switch: int) -> int:
 
     # Restore icon for current row                                   # L235-240
     from cws_map import _clear_arrow
-    _clear_arrow(g)                                                  # always erase arrow
-    if switch in (1, 2, 9):                                          # L236
+    _clear_arrow(g)                                                  # erase arrow (kinds 9)
+    if switch == 1:                                                  # L236 (kind 7 highlight box)
         icon(g, g.array[row], 0, 8)                                  # L237
-    elif switch == 6:                                                # L238
-        icon(g, g.armyloc[g.array[row]], 0, 8)                      # L239
 
     s.view()                                                         # L241
     return g.choose
