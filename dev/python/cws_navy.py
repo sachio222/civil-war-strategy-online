@@ -9,8 +9,8 @@ Contains:
     integrity(g)              L471-489 - map link checker
     shipicon(g, who, flag)    L490-521 - draw ship icon
     ships(g)                  L522-537 - draw all fleet positions
-    ironclad(g)               L538-641 - ironclad illustration (simplified)
-    schooner(g)               L642-792 - schooner illustration (simplified)
+    ironclad(g)               L538-641 - ironclad illustration
+    schooner(g)               L642-792 - schooner illustration
 """
 
 import random
@@ -64,7 +64,7 @@ def chessie(g: 'GameState') -> None:
     s.line_to(525, 115, 10)
     s.line_to(515, 85, 10)                                  # L19
     s.line_to(527, 95, 10)
-    # L20-21: PAINT for water — simplified fill
+    # L20-21: PAINT for water
     s.paint(500, 400, 1, 10)                                # L20
     s.paint(510, 110, 2)                                    # L21
 
@@ -123,12 +123,11 @@ def _clr_line17(g: 'GameState') -> None:
 
 
 def _xout(g: 'GameState', x: int, y: int) -> None:
-    """GOSUB xout: draw X over sunk ship (L455-459). Simplified."""
+    """GOSUB xout: draw X over sunk ship (L455-459)."""
     s = g.screen
-    s.pset(x, y, 15)
-    # Simplified DRAW → draw an X
-    s.line(x - 5, y - 5, x + 5, y + 5, 12)
-    s.line(x - 5, y + 5, x + 5, y - 5, 12)
+    s.pset(x, y, s._fg_color)                              # L456
+    s.draw("S5C15G5F5G3H5G5H3E5H5E3F5E5F3")               # L457
+    s.paint(x - 3, y + 1, 12, 15)                          # L458
 
 
 def _nest(g: 'GameState', who: int) -> int:
@@ -1111,7 +1110,6 @@ def ships(g: 'GameState') -> None:
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  SUB ironclad                                                Lines 538-641
-#  Simplified for monochrome: basic ship silhouette
 # ═══════════════════════════════════════════════════════════════════════════
 
 def ironclad(g: 'GameState') -> None:
@@ -1335,7 +1333,6 @@ def ironclad(g: 'GameState') -> None:
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  SUB schooner                                                Lines 642-792
-#  Simplified for monochrome: basic sailing ship
 # ═══════════════════════════════════════════════════════════════════════════
 
 def schooner(g: 'GameState') -> None:

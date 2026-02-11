@@ -211,12 +211,12 @@ def showcity(g: 'GameState') -> None:
             # L96-98: side box
             s.line(cx + 9, cy - 4, cx + 15, cy + 4, 0, "BF")
             s.line(cx + 8, cy - 5, cx + 13, cy + 2, 3, "BF")
-            s.pset(cx + 8, cy - 4, 0)                     # L98: uses current fg
-            # L99-100: fort DRAW commands → simplified
+            s.pset(cx + 8, cy - 4, 0)                     # L98: sets cursor
+            # L99-100: fort DRAW commands
             if g.fort[i] == 1:
-                s.line(cx + 9, cy - 3, cx + 11, cy + 1, 0)
+                s.draw("BR2C0E1D6BL1R2")
             elif g.fort[i] == 2:
-                s.line(cx + 9, cy - 3, cx + 12, cy, 0)
+                s.draw("C0E1R1F1D1G3R3")
         else:                                              # L101
             if g.fort[i] == 1:                             # L102
                 s.line(cx - 5, cy - 5, cx + 5, cy + 5, 0, "B")
@@ -1241,10 +1241,8 @@ def usa(g: 'GameState') -> None:
 
     # Fort Monroe label                                     L777-780
     if g.navyloc[1] == 30 or g.navyloc[2] == 30:
-        # L778: DRAW "FT" text → simplified
-        s.color(11)
-        s.locate(17, 62)
-        s.print_text("FT")
+        # L778: DRAW "FT" pixel font text
+        s.draw("C11U7R4D3L3BR6BU3D7BU4R3U3D7BR3U7BD4BR4BU4D7R4")
         s.line(485, 241, 525, 270, 11, "B")               # L779
 
     if g.graf > 1:                                         # L782
@@ -1254,10 +1252,14 @@ def usa(g: 'GameState') -> None:
     if g.commerce > 0:
         s.line(447, 291, 525, 317, 4, "BF")               # L784
         s.line(447, 291, 525, 317, 10, "B")
-        # L786-789: DRAW "COMMERCE" → simplified
-        s.color(10)
-        s.locate(20, 57)
-        s.print_text("COMMERCE")
+        # L786-789: DRAW "COMMERCE" letter by letter using font$
+        from vga_font import _DRAW_FONT_RAW
+        y_f = 312                                           # L785
+        a_str = "COMMERCE"                                  # L786
+        for j_f in range(len(a_str)):                       # L787
+            x_f = ord(a_str[j_f]) - 64                      # x = ASC(char) - 64
+            s.pset(440 + 10 * (j_f + 1), y_f, 0)           # L788: 1-based j
+            s.draw(_DRAW_FONT_RAW[x_f - 1])                # DRAW font$(x)
     else:
         s.line(447, 291, 525, 335, 1, "BF")               # L791
 

@@ -86,26 +86,53 @@ def animate(g: 'GameState', index: int, flag: int) -> None:
     """Animate army movement between cities.
 
     Original: SUB animate(index, flag)
-    Simplified for monochrome: just move the army directly.
+    Saves army icon, interpolates position from→to in 7 frames,
+    drawing/erasing the icon at each step.
     """
     from cws_army import placearmy
     from cws_data import occupy
 
-    from_ = g.armyloc[index]
+    s = g.screen
+    from_ = g.armyloc[index]                                # L2
     to2 = g.armymove[index]
     g.armyloc[index] = 0
+    x = g.cityx[from_] - 12                                # L3-4
+    y = g.cityy[from_] - 11
 
-    occupy(g, from_)
+    occupy(g, from_)                                        # L8
     if g.occupied[from_] > 0:
         placearmy(g, g.occupied[from_])
 
-    # Simplified: skip frame-by-frame animation for monochrome
-    # Just update position directly
-    if g.noise > 0:                                         # L21
-        from cws_sound import qb_sound
-        qb_sound(200, 0.1)
-        qb_sound(50, 0.1)
-    g.armyloc[index] = from_
+    if flag == 0:                                           # L10: IF flag > 0 GOTO already
+        g._anima = s.get_image(x - 9, y - 7, x + 9, y + 6)  # L11
+        if g.occupied[from_] == 0:                          # L12
+            s.line(x - 9, y - 8, x + 10, y + 8, 2, "BF")
+    # already:                                               L13
+
+    anima = getattr(g, '_anima', None)
+    if anima is None:
+        g.armyloc[index] = from_
+        return
+
+    fx = g.cityx[from_]
+    fy = g.cityy[from_]
+    tx = g.cityx[to2]
+    ty = g.cityy[to2]
+
+    for i in range(2, 9):                                   # L15: FOR i = 2 TO 8
+        x1 = int(0.1 * (i * tx + (10 - i) * fx))          # L16
+        y1 = int(0.1 * (i * ty + (10 - i) * fy))          # L17
+        image = s.get_image(x1 - 10, y1 - 10, x1 + 9, y1 + 9)  # L18
+        s.put_image(x1 - 10, y1 - 10, anima)               # L19
+        delay = 0.1 if g.turbo > 1 else 0.02               # L20
+        tick(g, delay)
+        if g.noise > 0:                                     # L21
+            from cws_sound import qb_sound
+            qb_sound(200, 0.1)
+            qb_sound(50, 0.1)
+        s.put_image(x1 - 10, y1 - 10, image)               # L22
+
+    g.armyloc[index] = from_                                # L24
 
 
 def normal(xbar: int, vary: int) -> int:

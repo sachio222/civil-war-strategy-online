@@ -70,14 +70,13 @@ def placearmy(g: 'GameState', which: int) -> None:
     armyxy(g, x, y, who)                                    # L174
 
     if g.supply[which] < 1:                                 # L175-180
-        # Low supply indicator: small magenta 'S'
+        # Low supply indicator: 'S' in cyan at double scale
         sx = x - 3                                          # L176
         sy = y + 4
         g.screen.pset(sx, sy, 13)                           # L177
-        # L178: DRAW font$(19) → simplified: draw small 'S'
-        g.screen.line(sx + 1, sy - 2, sx + 4, sy - 2, 11)
-        g.screen.line(sx, sy, sx + 3, sy, 11)
-        g.screen.line(sx + 1, sy + 2, sx + 4, sy + 2, 11)
+        from vga_font import _DRAW_FONT_RAW
+        # L178-179: DRAW "C11S8" + font$(19) + "S4"
+        g.screen.draw("C11S8" + _DRAW_FONT_RAW[18] + "S4")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
