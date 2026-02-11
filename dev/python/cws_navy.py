@@ -989,6 +989,7 @@ def integrity(g: 'GameState') -> None:
                     s.print_text(
                         f"+ Adding return route from {g.city[index]} to {g.city[i]}"
                     )
+                    s._row += 1; s._col = 1                 # newline
                     y_fix += 1
                     found = True
                     break
@@ -998,6 +999,7 @@ def integrity(g: 'GameState') -> None:
                     f"Error in CITIES.GRD entry for city #{i} "
                     f"{g.city[index]}: no return route to {g.city[i]}"
                 )
+                s._row += 1; s._col = 1                     # newline
                 from cws_util import tick
                 tick(g, 1)
 
@@ -1006,6 +1008,7 @@ def integrity(g: 'GameState') -> None:
         return
     if y_fix > 0:                                           # L487
         s.print_text(f"* {y_fix} fixes made to provide RETURN ROUTES")
+        s._row += 1; s._col = 1                             # newline
     if x_err > 0:                                           # L488
         s.print_text(f"** {x_err} UNRESOLVED RETURN ROUTES")
 

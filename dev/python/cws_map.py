@@ -326,6 +326,10 @@ def tupdate(g: 'GameState') -> None:
             s.line(5, 17, 100, 63, 0, "B")
             engine(g)
 
+    # Clear railroad display if no railroads remain
+    if g.rr[1] + g.rr[2] == 0:
+        s.line(5, 17, 100, 63, 2, "BF")                   # repaint map green
+
     # ══════════════════════════════════════════════════════════════════
     #                    Assign Time of Action                L138-157
     # ══════════════════════════════════════════════════════════════════

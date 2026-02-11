@@ -77,6 +77,8 @@ class PygameScreen:
         self._clip = None     # VIEW clipping rect (None = full screen)
         self._last_x = 0      # last LINE/PSET endpoint for continuation
         self._last_y = 0
+        self._draw_color: int | None = None   # persistent DRAW C<n> color
+        self._draw_scale: int = 4             # persistent DRAW S<n> scale
 
         # No system font needed — we use the VGA bitmap font from vga_font.py
 
@@ -85,6 +87,7 @@ class PygameScreen:
     def color(self, c: int) -> None:
         """Set foreground color (0-15)."""
         self._fg_color = c % 16
+        self._draw_color = None   # reset so DRAW picks up new fg
 
     def _rgb(self, c: int = -1):
         """Get RGB tuple for color index."""
@@ -184,29 +187,37 @@ class PygameScreen:
             pygame.draw.line(self.surface, rgb, (px, py), (ex, ey))
 
     def circle(self, x: int, y: int, r: int, c: int,
-               fill: bool = False, aspect: float = 1.0) -> None:
-        """Draw circle or ellipse. aspect < 1 squashes vertically (QBasic style).
+               fill: bool = False, aspect: float = 1.0,
+               start: float = None, end: float = None) -> None:
+        """Draw circle, ellipse, or arc.
 
         QBasic CIRCLE: aspect < 1 → rx = r, ry = r * aspect
                        aspect > 1 → rx = r / aspect, ry = r
+        start/end: arc angles in radians (QBasic convention, counter-clockwise).
         """
         rgb = self._rgb(c)
         if aspect == 1.0:
-            if fill:
+            rx = r
+            ry = r
+        elif aspect < 1.0:
+            rx = r
+            ry = max(1, int(r * aspect))
+        else:
+            rx = max(1, int(r / aspect))
+            ry = r
+        rect = (x - rx, y - ry, 2 * rx + 1, 2 * ry + 1)
+
+        if start is not None and end is not None:
+            # Arc mode — pygame.draw.arc uses same convention as QBasic
+            pygame.draw.arc(self.surface, rgb, rect, start, end, 1)
+        elif fill:
+            if aspect == 1.0:
                 pygame.draw.circle(self.surface, rgb, (x, y), r)
             else:
-                pygame.draw.circle(self.surface, rgb, (x, y), r, 1)
-        else:
-            # Ellipse via bounding rect
-            if aspect < 1.0:
-                rx = r
-                ry = max(1, int(r * aspect))
-            else:
-                rx = max(1, int(r / aspect))
-                ry = r
-            rect = (x - rx, y - ry, 2 * rx + 1, 2 * ry + 1)
-            if fill:
                 pygame.draw.ellipse(self.surface, rgb, rect)
+        else:
+            if aspect == 1.0:
+                pygame.draw.circle(self.surface, rgb, (x, y), r, 1)
             else:
                 pygame.draw.ellipse(self.surface, rgb, rect, 1)
         # QBasic CIRCLE moves the graphics cursor to the center
@@ -253,8 +264,9 @@ class PygameScreen:
         """
         cx = self._last_x
         cy = self._last_y
-        color_idx = self._fg_color
-        scale = 4                     # default S4 = 1:1
+        # QBasic DRAW persists C<n> and S<n> across calls
+        color_idx = self._draw_color if self._draw_color is not None else self._fg_color
+        scale = self._draw_scale
         i = 0
         s = draw_str.upper()
 
@@ -318,6 +330,8 @@ class PygameScreen:
 
         self._last_x = cx
         self._last_y = cy
+        self._draw_color = color_idx
+        self._draw_scale = scale
         return (cx, cy)
 
     # ── Image operations (store/restore pixel rectangles) ──────────────
@@ -363,6 +377,9 @@ class PygameScreen:
             self.surface.fill(VGA[0])
             self._clip = None
             self.surface.set_clip(None)
+        # QB64 CLS resets text cursor to top-left
+        self._row = 1
+        self._col = 1
 
     # ── Paint (flood fill) ─────────────────────────────────────────────────
 

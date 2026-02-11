@@ -707,75 +707,108 @@ def victor(g: 'GameState') -> None:
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  SUB rwin                                                     Lines 366-437
-#  Simplified for monochrome: basic mansion + stars
 # ═══════════════════════════════════════════════════════════════════════════
 
 def rwin(g: 'GameState') -> None:
-    """Confederate win screen with mansion and stars. Simplified."""
+    """Confederate win screen. Exact port of QB64 SUB rwin (L366-437)."""
     s = g.screen
 
     # Background                                            L367
-    s.line(2, 2, 637, 239, 4, "BF")                        # L367: red top
+    s.line(2, 2, 637, 239, 4, "BF")                        # L367
 
-    # X pattern border (simplified)                         L368-369
+    # X pattern border                                      L368-369
     s.color(15)
-    s.line(2, 40, 597, 239, 15)
-    s.line(597, 239, 637, 239, 15)
-    s.line(637, 239, 637, 199, 15)
-    s.line(637, 199, 40, 2, 15)
-    s.line(40, 2, 2, 2, 15)
-    s.line(2, 2, 2, 40, 15)
-    s.line(2, 199, 2, 239, 15)
-    s.line(2, 239, 40, 239, 15)
-    s.line(40, 239, 637, 40, 15)
-    s.line(637, 40, 637, 2, 15)
-    s.line(637, 2, 597, 2, 15)
-    s.line(597, 2, 2, 199, 15)
+    s.line(2, 40, 597, 239, 15)                             # L368
+    s.line_to(637, 239, 15)
+    s.line_to(637, 199, 15)
+    s.line_to(40, 2, 15)
+    s.line_to(2, 2, 15)
+    s.line_to(2, 40, 15)
+    s.line(2, 199, 2, 239, 15)                              # L369
+    s.line_to(40, 239, 15)
+    s.line_to(637, 40, 15)
+    s.line_to(637, 2, 15)
+    s.line_to(597, 2, 15)
+    s.line_to(2, 199, 15)
 
-    # Blue field                                            L371
+    # Blue field                                            L370-371
     s.line(242, 95, 395, 145, 4, "BF")                     # L370
     s.paint(4, 20, 1, 15)                                   # L371
 
-    # Green ground + blue bottom                            L373
+    # Green ground                                          L373
     s.line(2, 239, 637, 438, 2, "BF")                      # L373
 
-    # Stars                                                 L374: GOSUB stars
-    for idx in range(1, 9):                                 # L425-434
+    # Stars (GOSUB stars L374, L424-435)
+    for idx in range(1, 9):                                 # L425
         if idx < len(g.starx) and idx < len(g.stary):
-            sx = g.starx[idx]
+            sx = g.starx[idx]                               # L426
             sy = g.stary[idx]
-            # Simplified star: filled diamond
-            s.pset(sx, sy, 15)
-            s.line(sx - 6, sy, sx, sy - 10, 15)
-            s.line(sx, sy - 10, sx + 6, sy, 15)
-            s.line(sx + 6, sy, sx, sy + 10, 15)
-            s.line(sx, sy + 10, sx - 6, sy, 15)
+            s.pset(sx, sy, 0)                               # L427
+            s.line(sx + 2, sy - 1, sx + 8, sy + 16, 15)    # L428
+            s.line_to(sx - 6, sy + 2, 15)                   # L429
+            s.line_to(sx - 20, sy + 16, 15)
+            s.line_to(sx - 14, sy - 1, 15)                  # L430
+            s.line_to(sx - 30, sy - 9, 15)
+            s.line_to(sx - 12, sy - 9, 15)                  # L431
+            s.line_to(sx - 6, sy - 25, 15)
+            s.line_to(sx, sy - 9, 15)                       # L432
+            s.line_to(sx + 16, sy - 9, 15)
+            s.line_to(sx + 2, sy - 1, 15)                   # L433
+            s.paint(sx, sy, 15)                              # L433
 
-    # Landscape (simplified)                                L377-385
-    s.line(1, 240, 639, 230, 5)                             # horizon
-    s.line(1, 330, 639, 340, 9)                             # hill line
+    # Landscape                                             L377-385
+    s.pset(1, 240, 0)                                       # L377
+    s.draw("S14BR68C0E6U1E3R2E4R10F2R7F2R5E3R12F7R4F2E3R5E3R9F4")  # L378
+    s.draw("C0R6F2R5F1R3F3L44F2L42E1H1L29E2R1BH5BL3BR5")  # L379
+    s.paint(300, 230, 5, 0)                                 # L380
 
-    # Mansion (simplified)                                  L389-409
-    mx = 100                                                # L390
-    my = 240
-    # Main building
-    s.line(mx, my, mx + 100, my + 36, 7, "BF")             # L395
-    # Columns
-    for col in range(1, 7):                                 # L396
-        s.line(mx + 17 * col, my + 6, mx + 17 * col + 4, my + 32, 0, "BF")
-    # Door
-    s.line(mx + 50, my + 20, mx + 57, my + 36, 8, "BF")   # L398
-    # Roof
-    s.line(mx - 5, my - 7, mx + 95, my - 7, 10)           # L404
-    s.line(mx + 95, my - 7, mx + 107, my + 7, 10)
-    s.line(mx + 107, my + 7, mx + 7, my + 7, 10)
-    s.line(mx + 7, my + 7, mx - 5, my - 7, 10)
-    # Chimney
-    s.line(mx + 95, my - 14, mx + 102, my + 8, 8, "BF")   # L393
+    s.pset(2, 330, 0)                                       # L381
+    s.draw("C0D18U1R32E4R26E2R27E5R20E2R1E2U1E2U2E4H4L5H2L9H1L5H3L4H2L5H1L3H2L12H4")  # L382
+    s.draw("C0D1F4R5F2R3F2R4F5R5F3L13G1L8G2L24G1L30G1L18D21")  # L383
+    s.draw("BE5")                                            # L384
+    x_pt = s._last_x
+    y_pt = s._last_y + 5
+    s.paint(x_pt, y_pt, 9, 0)                               # L384
+
+    s.draw("BU12C11R21F1R2BR2BD6C11R9E1R9E1R6BH7C11R9E1R9BF5C11R9E1R1E1R10")  # L385
 
     # Border                                                L386-387
     s.line(1, 1, 638, 440, 14, "B")                         # L386
     s.line(2, 2, 637, 439, 14, "B")                         # L387
+
+    # Mansion                                               L389-409
+    x = 100                                                 # L390
+    y = 240
+    s.circle(x + 50, y + 40, 80, 0, aspect=0.2)           # L391
+    s.paint(x + 50, y + 40, 6, 0)                          # L392
+    s.line(x + 95, y - 14, x + 102, y + 8, 8, "BF")       # L393
+    s.line(x + 100, y - 14, x + 102, y + 8, 7, "BF")      # L394
+    s.line(x, y, x + 100, y + 36, 7, "BF")                # L395
+    for i in range(1, 7):                                   # L396
+        s.line(x + 17 * i, y + 6, x + 17 * i + 4, y + 32, 0, "BF")
+    s.line(x + 12, y + 18, x + 98, y + 22, 7, "BF")       # L397
+    s.line(x + 50, y + 20, x + 57, y + 36, 8, "BF")       # L398
+    s.line(x + 100, y + 36, x + 105, y + 39, 7)           # L399
+    s.line_to(x + 5, y + 39, 7)                            # L400
+    s.line_to(x, y + 38, 7)
+
+    # Side porch                                            L402-407
+    s.line(x, y, x - 7, y - 7, 8)                         # L402
+    s.line_to(x - 14, y + 5, 8)
+    s.line_to(x - 14, y + 33, 8)                           # L403
+    s.line_to(x, y + 36, 8)
+    s.line_to(x, y, 8)
+    s.color(10)                                             # L404
+    s.line(x - 5, y - 7, x + 95, y - 7, 10)
+    s.line_to(x + 107, y + 7, 10)                          # L404
+    s.line_to(x + 7, y + 7, 10)                            # L405
+    s.line_to(x - 5, y - 7, 10)
+    s.paint(x, y - 3, 10)                                   # L406
+    s.paint(x - 5, y + 15, 8)                               # L407
+
+    # Column highlights                                     L409
+    for i in range(1, 7):
+        s.line(x + 19 * i - 12, y + 7, x + 19 * i - 12 + 2, y + 40, 15, "BF")
 
     # Dixie music                                           L411-420
     s.update()

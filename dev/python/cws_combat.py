@@ -498,25 +498,90 @@ def fortify(g: 'GameState') -> int:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def cannon(g: 'GameState') -> None:
-    """Draw cannon battle scene. Simplified for monochrome."""
+    """Draw cannon battle scene. Exact port of QB64 SUB cannon (L233-280)."""
     from cws_ui import clrrite
     s = g.screen
     clrrite(g)                                             # L234
     # Background panels                                     L235-237
-    s.line(528, 80, 639, 310, 3, "BF")
-    s.line(528, 310, 639, 435, 2, "BF")
-    s.line(528, 405, 639, 420, 0, "BF")
-    # Simplified cannon shape                               L238+
-    s.pset(580, 380, 0)
-    # Cannon barrel (simplified from DRAW commands)
-    s.line(560, 370, 610, 370, 0)
-    s.line(560, 375, 610, 375, 0)
-    s.line(560, 370, 560, 375, 0)
-    s.line(610, 370, 620, 365, 0)
-    s.line(610, 375, 620, 380, 0)
-    # Wheels
-    s.circle(570, 395, 15, 0)
-    s.circle(595, 395, 15, 0)
+    s.line(528, 80, 639, 310, 3, "BF")                    # L235
+    s.line(528, 310, 639, 435, 2, "BF")                   # L236
+    s.line(528, 405, 639, 420, 0, "BF")                   # L237
+    s.pset(580, 380, 0)                                    # L238
+
+    # Cannon wheels                                         L240-243
+    s.draw("BR15")                                          # L240
+    x = s._last_x; y = s._last_y
+    s.circle(x, y, 25, 1, aspect=1.4)                      # L241
+    s.circle(x + 5, y, 27, 1, start=4.0, end=1.5, aspect=1.4)  # L242
+    s.circle(x, y, 29, 1, aspect=1.4)                      # L243
+
+    s.draw("BR20")                                          # L244
+    x = s._last_x; y = s._last_y
+    s.paint(x, y, 3, 1)                                    # L245
+
+    s.draw("BR3BU7")                                        # L246
+    x = s._last_x; y = s._last_y
+    s.paint(x, y, 5, 1)                                    # L247
+
+    # Cannon barrel                                         L248-259
+    s.draw("BL15C7G4L50H1L12H1L7H3U1H1U4E5R6E1R13E1R52F3D2R1E1R1F2D5G3H2G2BL2")  # L248
+    s.draw("BH2C6")                                         # L249
+    x = s._last_x; y = s._last_y
+    s.paint(x, y, 7)                                        # L250
+
+    s.draw("BD2R4C0G4L50H1L12H1L7H3U1H1U4E5R6E1R13E1R52F3D2R1E1R1F2D5G3H2G2BR5U3")  # L251
+    s.draw("C8G2H2G6L15G1L32H1L1H1L19H3E2R2F1R6")          # L252
+    s.draw("E2R4F1R6E1R58F1G2BL9BH2BU5BR3C15H1L48G1L13G1L4")  # L253
+
+    s.draw("BD3BF3BR9")                                      # L254
+    x = s._last_x; y = s._last_y
+    s.paint(x, y, 8)                                        # L255
+
+    # Soldier body                                          L256-259
+    s.draw("BR34BE1BR7BL5BD8C6R16F5D1F4D6F7R17D7L30H18L8H4L18H3U5R33BR17BD5")  # L256
+    x = s._last_x; y = s._last_y
+    s.paint(x, y, 6)                                        # L257
+
+    s.draw("BU5C8F8D7F6R1F1R16D7E3U7G3E2BE2C8L16H6U8C8G3BE3C8H8G6BR5")  # L258
+    x = s._last_x; y = s._last_y
+    s.paint(x, y, 8)                                        # L259
+
+    # Smoke rings                                           L260-268
+    s.draw("BL38")                                           # L260
+    x = s._last_x; y = s._last_y
+    s.circle(x, y, 30, 4, aspect=1.4)                       # L261
+    s.circle(x + 5, y, 35, 4, start=4.0, end=1.5, aspect=1.4)  # L262
+    s.circle(x, y, 35, 4, aspect=1.4)                       # L263
+    s.circle(x, y, 8, 4, aspect=1.4)                        # L264
+    s.paint(x, y, 1, 4)
+    s.paint(x, y, 0, 4)
+
+    s.draw("BR23")                                           # L265
+    x = s._last_x; y = s._last_y
+    s.paint(x, y, 1, 4)                                     # L266
+    s.paint(x, y, 4, 4)
+
+    s.draw("BR5BU7")                                         # L267
+    x = s._last_x; y = s._last_y
+    s.paint(x, y, 1, 4)                                     # L268
+    s.paint(x, y, 0, 4)
+
+    # Soldier details (DRAW commands)                        L269-278
+    s.draw("BU22BL28")                                       # L269
+    s.draw("C4D20R1U19BD37C4D20L1U21BH2BL1BH1C4G12F1E11BU3BH2")  # L270
+    s.draw("BU3BL1C4L13U1R15BR1BU3C4H12E1F11BF5BE4C4E11F1G11BD3C4R13D1L10D3BL3BD1C4")  # L271
+    s.draw("F12G1H12BL33BH13BU3BH2BU1BE1BR2BU1BE1BR1")     # L272
+    s.draw("BL5BU5C8E4U1")                                   # L273
+    s.draw("H4E3H3U3E3H6L3G7F1H7E2U2E2H7L7G9D6F8G3L1H3L5G7D4F4R2D3F3R2G5D4L4G4D5F8D2")  # L274
+    s.draw("R5F9E3F5R6E6H4E2F6R3E8F1E4H5U2H3U1H1U7E4H7BL5")  # L275
+
+    x = s._last_x; y = s._last_y
+    s.paint(x, y, 8, 8)                                     # L276
+
+    s.draw("BR9BD6C15H8L1H2L12G1F5L8G4F4R3G3D1G2D3F2E5G1D8R4E3D6F3E12H1U1H1U6E5BH6BU4")  # L277
+    s.draw("BD15")                                            # L278
+    x = s._last_x; y = s._last_y
+    s.paint(x, y, 14, 15)                                    # L279
     s.update()
 
 
@@ -792,36 +857,193 @@ def retreat(g: 'GameState', defend: int) -> int:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def surrender(g: 'GameState', who: int) -> None:
-    """Draw surrender scene. Simplified for monochrome."""
+    """Draw surrender scene. Exact port of QB64 SUB surrender (L408-530)."""
     from cws_util import tick
     from cws_ui import flags
 
     s = g.screen
     ss = 1                                                 # L410
     c = 1
+    s.color(0)
     w = 514
     if who > 20:
         c = 7
         ss = 2
 
-    # Background panels                                     L413-415
-    s.line(w + 15, 440, w + 125, 16, 2, "BF")
-    s.line(w + 15, 16, w + 125, 290, 3, "BF")
-    s.line(w + 14, 16, w + 125, 440, c, "B")
+    # Background panels                                     L412-415
+    s.line(w + 15, 440, w + 125, 16, 2, "BF")             # L413
+    s.line(w + 15, 16, w + 125, 290, 3, "BF")             # L414
+    s.line(w + 14, 16, w + 125, 440, c, "B")              # L415
 
-    # Simplified soldier figure                             L416+
-    x = 77
-    yy = 280
-    # Head
-    s.circle(w + x + 13, yy - 15, 12, 0)
-    # Body
-    s.line(w + x + 13, yy - 3, w + x + 13, yy + 30, 0)
-    # Arms (raised in surrender)
-    s.line(w + x + 13, yy + 5, w + x - 5, yy - 10, 0)
-    s.line(w + x + 13, yy + 5, w + x + 31, yy - 10, 0)
-    # Legs
-    s.line(w + x + 13, yy + 30, w + x + 3, yy + 50, 0)
-    s.line(w + x + 13, yy + 30, w + x + 23, yy + 50, 0)
+    x = 77                                                 # L416
+    y = 280
+
+    # Ground ellipse                                        L417-418
+    s.circle(w + x + 10, y + 30, 30, 4, aspect=0.1)       # L417
+    s.paint(w + x + 10, y + 30, 6, 4)                     # L418
+
+    # Body outline                                          L419-434
+    s.line(w + x, y + 28, w + x + 6, y + 28, 0)           # L419
+    s.line_to(w + x + 6, y + 8, 0)
+    s.line_to(w + x + 8, y + 8, 0)                        # L420
+    s.line_to(w + x + 8, y + 28, 0)
+    s.line_to(w + x + 12, y + 28, 0)                      # L421
+    s.line_to(w + x + 12, y + 12, 0)
+    s.line_to(w + x + 15, y + 12, 0)                      # L422
+    s.line_to(w + x + 15, y + 30, 0)
+    s.line_to(w + x + 18, y + 30, 0)                      # L423
+    s.line_to(w + x + 18, y + 20, 0)
+    s.line_to(w + x + 21, y + 21, 0)                      # L424
+    s.line_to(w + x + 21, y + 32, 0)
+    s.line_to(w + x + 25, y + 32, 0)                      # L425
+    s.line_to(w + x + 25, y + 17, 0)
+    s.line_to(w + x + 27, y + 17, 0)                      # L426
+    s.line_to(w + x + 25, y - 10, 0)
+    s.line_to(w + x + 19, y - 14, 0)                      # L427
+    s.line_to(w + x + 15, y - 5, 0)
+    s.line_to(w + x + 12, y - 12, 0)                      # L428
+    s.line_to(w + x + 8, y - 15, 0)
+    s.line_to(w + x + 6, y - 15, 0)                       # L429
+    s.line_to(w + x + 6, y - 11, 0)
+    s.line_to(w + x + 3, y - 14, 0)                       # L430
+    s.line_to(w + x + 2, y - 14, 0)
+    s.line_to(w + x + 1, y - 10, 0)                       # L431
+    s.line_to(w + x - 3, y - 11, 0)
+    s.line_to(w + x - 3, y + 15, 0)                       # L432
+    s.line_to(w + x, y + 15, 0)
+    s.line_to(w + x, y - 3, 0)                            # L433
+    s.line_to(w + x + 2, y - 3, 0)
+    s.line_to(w + x, y + 28, 0)                           # L434
+    s.paint(w + x + 10, y, 8 - c, 0)                      # L435
+
+    # Eyes                                                  L437-438
+    s.circle(w + x + 7, y - 10, 3, 0)                     # L437
+    s.paint(w + x + 7, y - 10, 0, 0)
+    s.circle(w + x + 20, y - 8, 3, 0)                     # L438
+    s.paint(w + x + 20, y - 8, 0, 0)
+
+    # Hair lines                                            L440-444
+    s.line(w + x + 5, y - 30, w + x + 6, y - 9, 0)       # L440
+    s.line(w + x + 20, y, w + x + 35, y + 30, 0)         # L441
+    s.line(w + x + 20, y + 1, w + x + 35, y + 31, 0)     # L442
+    s.line(w + x + 22, y - 31, w + x + 21, y - 8, 0)     # L443
+    s.line(w + x - 1, y - 28, w + x, y - 8, 0)           # L444
+
+    # Boot                                                  L446-452
+    s.circle(w + 37, 425, 22, 8, aspect=0.3)              # L446
+    s.paint(w + 37, 430, 8, 8)                             # L447
+    s.line(w + 26, 426, w + 46, 426, 0)                   # L448
+    s.line_to(w + 46, 423, 0)                              # L449
+    s.line_to(w + 36, 419, 0)
+    s.line_to(w + 36, 397, 0)                              # L450
+    s.line_to(w + 26, 397, 0)
+    s.line_to(w + 26, 426, 0)                              # L451
+    s.paint(w + 27, 399, 0, 0)                             # L452
+
+    # Arm                                                   L454-459
+    s.line(w + 26, 397, w + 25, 396, 0)                   # L454
+    s.line_to(w + 24, 374, 0)
+    s.line_to(w + 25, 346, 0)                              # L455
+    s.line(w + 25, 346, w + 22, 341, 0)
+    s.line_to(w + 46, 341, 0)                              # L456
+    s.line_to(w + 46, 349, 0)
+    s.line_to(w + 41, 365, 0)                              # L457
+    s.line_to(w + 41, 380, 0)
+    s.line_to(w + 36, 398, 0)                              # L458
+    s.paint(w + 30, 350, c, 0)                             # L459
+
+    # Saber                                                 L461-476
+    s.line(w + 55, 288, w + 58, 360, 14, "BF")            # L461
+    s.line(w + 55, 288, w + 55, 360, 14)                   # L462
+    s.line(w + 56, 361, w + 55, 360, 14)                   # L463
+    s.line(w + 57, 361, w + 58, 350, 14)                   # L464
+    s.line(w + 58, 350, w + 58, 288, 14)                   # L465
+    s.line(w + 55, 272, w + 62, 288, 6, "B")              # L466
+    s.line(w + 56, 273, w + 61, 287, 6, "B")              # L467
+    s.line(w + 57, 274, w + 60, 286, 6, "B")              # L468
+    s.line(w + 54, 295, w + 60, 305, 12, "BF")            # L470
+    s.line(w + 53, 294, w + 61, 306, 0, "B")              # L471
+    s.line(w + 57, 303, w + 61, 303, 0)                   # L472
+    s.line(w + 57, 298, w + 61, 298, 0)                   # L473
+    s.line(w + 34, 310, w + 46, 312, c, "BF")             # L474
+    s.line(w + 25, 380, w + 35, 378, 0)                   # L475
+    s.line(w + 25, 365, w + 34, 366, 0)                   # L476
+
+    # Shoulder / torso                                      L478-498
+    s.color(0)                                              # L478
+    s.line(w + 53, 297, w + 31, 305, 0)                   # L479
+    s.line_to(w + 25, 270, 0)
+    s.line_to(w + 18, 270, 0)                              # L480
+    s.line_to(w + 16, 275, 0)
+    s.line_to(w + 21, 309, 0)                              # L481
+    s.line_to(w + 28, 316, 0)
+    s.line_to(w + 52, 306, 0)                              # L482
+    s.line_to(w + 53, 298, 0)
+    s.paint(w + 20, 280, c, 0)                             # L483
+    s.line(w + 30, 310, w + 32, 305, 0)                   # L484
+    s.line_to(w + 25, 307, 0)
+    s.line(w + 46, 298, w + 47, 275, 0)                   # L485
+    s.line(w + 47, 275, w + 41, 269, 0)                   # L486
+    s.line(w + 41, 269, w + 25, 269, 0)                   # L487
+    s.paint(w + 45, 275, c, 0)                             # L488
+    s.circle(w + 40, 275, 1, 14)                           # L489
+    s.circle(w + 40, 285, 1, 14)                           # L490
+    s.circle(w + 40, 295, 1, 14)                           # L491
+
+    # Lower torso                                           L493-498
+    s.line(w + 21, 306, w + 18, 340, 0)                   # L493
+    s.line(w + 18, 340, w + 47, 340, 0)                   # L494
+    s.line(w + 46, 310, w + 48, 339, 0)                   # L495
+    s.paint(w + 30, 330, c, 0)                             # L496
+    s.line(w + 46, 312, w + 21, 316, 0, "BF")             # L497
+    s.line(w + 25, 312, w + 35, 313, c, "BF")             # L498
+
+    # Hat                                                   L500-514
+    s.line(w + 30, 268, w + 41, 264, 12, "BF")            # L500
+    s.line(w + 30, 263, w + 41, 263, 0)                   # L501
+    s.line(w + 30, 264, w + 26, 260, 0)                   # L502
+    s.line_to(w + 25, 248, 0)
+    s.line_to(w + 28, 243, 0)                              # L503
+    s.line_to(w + 46, 243, 0)
+    s.line_to(w + 48, 245, 0)                              # L504
+    s.line_to(w + 48, 248, 0)
+    s.line_to(w + 51, 254, 0)                              # L505
+    s.line_to(w + 51, 255, 0)
+    s.line_to(w + 48, 256, 0)                              # L506
+    s.line_to(w + 48, 261, 0)
+    s.line_to(w + 46, 263, 0)                              # L507
+    s.line_to(w + 39, 263, 0)
+    s.paint(w + 40, 250, 12, 0)                            # L508
+
+    # Hat brim                                              L510-514
+    s.line(w + 16, 242, w + 57, 241, 0, "BF")             # L510
+    s.line(w + 45, 240, w + 28, 240, 0)                   # L511
+    s.line_to(w + 31, 232, 0)                              # L512
+    s.line_to(w + 45, 232, 0)
+    s.line_to(w + 48, 240, 0)                              # L513
+    s.paint(w + 40, 235, c, 0)                             # L514
+
+    # Flagpole                                              L516
+    s.line(w + 80, 303, w + 81, 200, 6, "BF")             # L516
+
+    # Face detail                                           L518-526
+    s.line(w + 48, 251, w + 44, 250, 0, "B")              # L518
+    s.line(w + 29, 263, w + 43, 266, 0)                   # L519
+    s.line_to(w + 46, 266, 0)                              # L520
+    s.line_to(w + 48, 263, 0)
+    s.line_to(w + 48, 260, 0)                              # L521
+    s.line_to(w + 37, 258, 0)
+    s.line_to(w + 36, 255, 0)                              # L522
+    s.line_to(w + 37, 250, 0)
+    s.line_to(w + 39, 246, 0)                              # L523
+    s.line_to(w + 40, 243, 0)
+
+    c2 = 0                                                 # L524
+    if ss == 2:
+        c2 = 15
+        s.line(547, 263, 558, 263, 15)
+    s.paint(w + 33, 250, c2, 0)                            # L525
+    s.paint(w + 42, 264, c2, 0)                            # L526
 
     # Flag                                                  L528
     flags(g, 3 - ss, 26, 0)

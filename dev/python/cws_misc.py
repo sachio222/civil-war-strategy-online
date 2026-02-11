@@ -143,9 +143,7 @@ def newcity(g: 'GameState', index: int) -> int:
 # Gettysburg Address excerpt, and plays "Battle Hymn of the Republic".
 #
 # The building is drawn with DRAW turtle commands (pixel art).
-# For monochrome mode: we keep all LINE/CIRCLE/text exactly, and replace
-# DRAW commands with simplified rectangle outlines for the building shape.
-# Sound (PLAY) is no-op.
+# Exact port of all DRAW commands for columns, windows, and Statue of Freedom.
 # ─────────────────────────────────────────────────────────────────────────────
 
 def capitol(g: 'GameState') -> None:
@@ -163,33 +161,48 @@ def capitol(g: 'GameState') -> None:
     s.line(1, 150, 639, 300, 15, "BF")                              # L46: white middle
     s.line(1, 300, 639, 450, 1, "BF")                               # L47: blue bottom
 
-    # Capitol building -- main structure outlines                    # L48-76
-    # Original uses DRAW turtle commands for detailed architecture.
-    # Monochrome: simplified to rectangles approximating the shape.
-    s.line(150, 190, 500, 254, 7, "B")                              # L49: main building
-    s.line(270, 190, 370, 254, 7, "B")                              # L50: center section
-    s.line(270, 185, 370, 175, 7, "B")                              # L51: upper center
-    s.line(280, 173, 360, 168, 7, "B")                              # L52: pediment
-    s.line(270, 235, 370, 254, 7, "B")                              # L53: steps
-    s.circle(320, 150, 74, 7)                                       # L54: dome (simplified)
-    s.line(285, 138, 355, 168, 7, "B")                              # L55: dome base
+    # Capitol building -- exact port of L48-76
+    x = 0                                                            # L48
+    s.line(150, 190, 500, 254, 7, "B")                              # L49
+    s.line(270, 190, 370, 254, 7, "B")                              # L50
+    s.line(270, 185, 370, 175, 7, "B")                              # L51
+    s.line(280, 173, 360, 168, 7, "B")                              # L52
+    s.line(270, 235, 370, 254, 7, "B")                              # L53
+    s.circle(320, 150, 74, 7, start=0.2, end=2.95, aspect=2.1)      # L54
+    s.line(285, 138, 355, 168, 7, "B")                              # L55
 
-    # Wings (L56-64): original uses DRAW for columns/windows.
-    # Monochrome: simple rectangles for each wing
-    for wing_x in [180, 300, 420]:                                   # 3 wings
-        s.line(wing_x, 200, wing_x + 47, 254, 7, "B")
+    # lwing: L56-64 — three wing sections
+    for x in range(3):                                               # L64: x=0,1,2
+        s.pset(180 + 120 * x, 200, 0)                               # L57
+        s.draw("C7ER1E1R1E1R1E1R1E1R1E1R1E1R1E1R1E1R1E1R1E1R1F1R1F1R1F1")  # L59
+        s.draw("R1F1R1F1R1F1R1F1R1F1R1F1R1F1R1F1R1F1L47D4R48U3D51L4U17L41D17L3U47")  # L60
+        for i in range(1, 8):                                        # L61
+            s.draw("BR6R2D25L2U25")
+        s.draw("BD33R2")                                             # L62
+        for i in range(1, 6):                                        # L63
+            s.draw("L40BR40D3")
 
-    # Windows on center section (L66-68): simplified to lines
-    for i in range(1, 4):
-        s.line(270 + 25 * i, 190, 270 + 25 * i, 254, 7)
+    # Center section columns L65-68
+    s.pset(270, 190, 0)                                              # L65
+    for i in range(1, 4):                                            # L66
+        s.draw("C7BR6R2D45L2U45")
+    s.pset(344, 190, 0)                                              # L67
+    for i in range(1, 4):                                            # L68
+        s.draw("C7BR6R2D45L2U45")
 
-    # Dome windows (L69-72): simplified
-    s.line(285, 138, 355, 168, 7, "B")
+    # Dome windows L69-72
+    s.pset(283, 140, 0)                                              # L69
+    for i in range(1, 12):                                           # L70
+        s.draw("C7BR6R2D25L2U25")
+    s.pset(283, 120, 0)                                              # L71
+    for i in range(1, 12):                                           # L72
+        s.draw("C7BR6R2D15L2U15")
 
-    # Spire (L73-76)
+    # Spire L73-76
     s.line(315, 55, 325, 77, 7, "B")                                # L73
     s.line(318, 57, 322, 75, 7, "B")                                # L74
-    # DRAW for statue of freedom (L76) -- skip for monochrome
+    s.pset(315, 53, 0)                                               # L75
+    s.draw("S3C7R13U6L13D5BU5C7U2E1U2E2U3H2U3H1E3U2H1U2E2U2E2F2D2F4D3R2E2F1G4L1D7F1D2F1D1G2")  # L76
 
     # Yellow text area                                               # L77
     s.line(140, 270, 510, 430, 14, "BF")
