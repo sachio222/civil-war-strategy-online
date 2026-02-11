@@ -811,15 +811,22 @@ def rwin(g: 'GameState') -> None:
         s.line(x + 19 * i - 12, y + 7, x + 19 * i - 12 + 2, y + 40, 15, "BF")
 
     # Dixie music                                           L411-420
+    # Original uses MB (background) so music is non-blocking;
+    # we use interruptible playback so any key press skips the music.
     s.update()
     if g.noise >= 2:
-        from cws_sound import qb_play
-        qb_play("MBMS T120")                                       # L412
-        qb_play("O3 L16 g e L8 c c L16 c d e f L8 g g g e a a a. L16 g a8. g a b")  # L413
-        qb_play("O4 L16 c d e4. c O3 g O4 c4. O3 g e g4. d e c4 P8")                # L414
-        qb_play("L16 g e L8 c c L16 c d e f L8 g g g e a a a. L16 g a8. g a b")      # L415
-        qb_play("O4 L16 c d e4. c O3 g O4 c4. O3 g e g4. d e c4.")                   # L416
-        qb_play("L16 T150 g a b T120 O4 L8 c e d. c16 O3 a O4 c4 O3 a O4 d4.")      # L417
-        qb_play("O3 a O4 d4. O3 T150 L16 g a b T120 L8 O4 c e d. c16")               # L418
-        qb_play("L8 O3 a b O4 c. O3 a16 g e O4 c. O3 e16 e d4 e c4. e d4. a")       # L419
-        qb_play("L8 g e O4 c. e16 d c4 O3 e c4. e d4. a g e O4 e4. c16 d c4")       # L420
+        from cws_sound import qb_play_interruptible
+        _dixie = [
+            "MBMS T120",                                                               # L412
+            "O3 L16 g e L8 c c L16 c d e f L8 g g g e a a a. L16 g a8. g a b",        # L413
+            "O4 L16 c d e4. c O3 g O4 c4. O3 g e g4. d e c4 P8",                      # L414
+            "L16 g e L8 c c L16 c d e f L8 g g g e a a a. L16 g a8. g a b",            # L415
+            "O4 L16 c d e4. c O3 g O4 c4. O3 g e g4. d e c4.",                         # L416
+            "L16 T150 g a b T120 O4 L8 c e d. c16 O3 a O4 c4 O3 a O4 d4.",            # L417
+            "O3 a O4 d4. O3 T150 L16 g a b T120 L8 O4 c e d. c16",                    # L418
+            "L8 O3 a b O4 c. O3 a16 g e O4 c. O3 e16 e d4 e c4. e d4. a",             # L419
+            "L8 g e O4 c. e16 d c4 O3 e c4. e d4. a g e O4 e4. c16 d c4",             # L420
+        ]
+        for phrase in _dixie:
+            if qb_play_interruptible(phrase):
+                break

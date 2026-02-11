@@ -208,20 +208,20 @@ def capitol(g: 'GameState') -> None:
     s.line(140, 270, 510, 430, 14, "BF")
 
     # Lincoln quote interleaved with Battle Hymn                      # L78-87
+    # Music is interruptible so any key press skips remaining music.
     s.color(15)
+    _skip = False
     if g.noise == 2:                                                  # L79
-        from cws_sound import qb_play
-        qb_play("T130MFMSO2f16f8.f16f8.e-16d8.f16b-8.o3c16d8.d16d8.c16o2b-4")
+        from cws_sound import qb_play_interruptible
+        _skip = qb_play_interruptible("T130MFMSO2f16f8.f16f8.e-16d8.f16b-8.o3c16d8.d16d8.c16o2b-4")
     s.locate(20, 20)                                                 # L80
     s.print_text('"... and that the government of the people,')
-    if g.noise == 2:                                                  # L81
-        from cws_sound import qb_play
-        qb_play("o2b-8.a16g8.g16g8.a16b-8.a16b-8.g16f8.g16f8.d16f4")
+    if g.noise == 2 and not _skip:                                    # L81
+        _skip = qb_play_interruptible("o2b-8.a16g8.g16g8.a16b-8.a16b-8.g16f8.g16f8.d16f4")
     s.locate(21, 20)                                                 # L82
     s.print_text("by the people, for the people,")
-    if g.noise == 2:                                                  # L83
-        from cws_sound import qb_play
-        qb_play("f8.f16f8.f16f8.e-16d8.f16b-8.o3c16d8.d16d8.c16o2b-4b-4MNo3c4c4o2b-4a4b-2")
+    if g.noise == 2 and not _skip:                                    # L83
+        _skip = qb_play_interruptible("f8.f16f8.f16f8.e-16d8.f16b-8.o3c16d8.d16d8.c16o2b-4b-4MNo3c4c4o2b-4a4b-2")
     s.locate(22, 20)                                                 # L84
     s.print_text('shall not perish from the earth."')
     s.locate(25, 40)                                                 # L85
@@ -231,10 +231,10 @@ def capitol(g: 'GameState') -> None:
     for i in range(-565, 51, 50):
         flags(g, 1, i, 0)
 
-    if g.noise == 2:                                                  # L87
-        from cws_sound import qb_play
-        qb_play("P2f4..e-16d8.f16b-8.o3c16d2o2b-2g4..a16b-8.a16b-8.g16f2d2")
-        qb_play("f4..e-16d8.f16b-8.o3c16d2o2b-4b-4o3c4c4o2b-4a4b-2..")
+    if g.noise == 2 and not _skip:                                    # L87
+        _skip = qb_play_interruptible("P2f4..e-16d8.f16b-8.o3c16d2o2b-2g4..a16b-8.a16b-8.g16f2d2")
+    if g.noise == 2 and not _skip:
+        qb_play_interruptible("f4..e-16d8.f16b-8.o3c16d2o2b-4b-4o3c4c4o2b-4a4b-2..")
     s.update()
 
 

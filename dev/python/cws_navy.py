@@ -110,6 +110,7 @@ def _showhit(g: 'GameState', hit: list) -> None:
     s.print_text(f"{hit[1]}  ")
     s.locate(15, 6 * g.navysize[2])                         # L420
     s.print_text(f"{hit[2]}  ")
+    s.update()
     if g.noise == 0:                                        # L421
         from cws_util import tick
         tick(g, 0.1 * g.turbo)
@@ -288,6 +289,7 @@ def _pirate_combat(g: 'GameState', who: int, chx: int) -> None:
                 s.pset(x_pos, y_pos, 1)
                 shiptype(g, 2, i)
             s.color(11)                                     # L344
+            s.update()
 
             # wave: combat menu                             L345-413
             while True:                                     # wave loop
