@@ -213,13 +213,17 @@ def showcity(g: 'GameState') -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def snapshot(g: 'GameState', x: int, y: int, flag: int) -> None:
-    """Save (flag=0) or restore (flag=1) small screen area via shared image buffer."""
+    """Save (flag=0) or restore (flag=1) small screen area via snapshot buffer.
+
+    Uses a separate buffer (g._snap_image) so it doesn't clobber the
+    icon save/restore buffer (g._saved_image) used by icon kinds 7/8/9.
+    """
     s = g.screen
     if flag == 0:                                          # L115
-        g._saved_image = s.get_image(x - 10, y - 10, x + 10, y + 10)
+        g._snap_image = s.get_image(x - 10, y - 10, x + 10, y + 10)
     elif flag == 1:                                        # L116
-        if hasattr(g, '_saved_image') and g._saved_image is not None:
-            s.put_image(x - 10, y - 10, g._saved_image)
+        if hasattr(g, '_snap_image') and g._snap_image is not None:
+            s.put_image(x - 10, y - 10, g._snap_image)
 
 
 # ─── Helper: GOSUB upbox (Lines 334-340) ─────────────────────────────────
@@ -798,7 +802,7 @@ def maptext(g: 'GameState') -> None:
         matrix(k,7) >= 90: C10 (green) — coastal/water cities
     """
     from cws_screen_pygame import VGA
-    font = pygame.font.SysFont("courier", 9)
+    from vga_font import get_draw_glyph, DRAW_OX, DRAW_OY
     for k in range(1, 41):                                 # L411
         name = g.city[k]
         if not name:
@@ -806,29 +810,26 @@ def maptext(g: 'GameState') -> None:
         cx = g.cityx[k]
         cy = g.cityy[k]
 
-        # Original positioning: first char at cityx + 6*(1-4) - 3 = cityx - 21
-        x = cx - 21                                        # L413: a = cityx + 6*(1-4) - 3
-        if x > 527:                                        # L415: off-screen
-            continue
-        if x < 1:
-            x = 1
+        for j in range(len(name)):                         # L412
+            a = cx + 6 * (j - 3) - 3                      # L413: 1-based j→0-based
+            if a > 527:                                    # L415
+                break
 
-        # Color per original L418-422
-        if g.matrix[k][7] >= 90:                           # L420-421
-            c = VGA[10]                                    # green (coastal)
-        elif g.bw == 0:                                    # L419
-            c = VGA[0]                                     # black (normal)
-        else:
-            c = VGA[7]                                     # gray (B&W mode)
+            ch = name[j].upper()
+            code = ord(ch)
 
-        # Render with pygame font, clip to map border (x <= 527)
-        surf = font.render(name.upper(), True, c)
-        max_w = 528 - x                                   # don't bleed past map edge
-        if max_w < 1:
-            continue
-        if surf.get_width() > max_w:
-            surf = surf.subsurface((0, 0, max_w, surf.get_height()))
-        g.screen.surface.blit(surf, (x, cy + 12))
+            # Color per original L418-422
+            if g.matrix[k][7] >= 90:                       # L420-421
+                rgb = VGA[10]                              # green (coastal)
+            elif g.bw == 0:                                # L419
+                rgb = VGA[0]                               # black (normal)
+            else:
+                rgb = VGA[7]                               # gray (B&W mode)
+
+            glyph = get_draw_glyph(code, rgb)
+            if glyph is not None:
+                # Blit so the glyph origin (DRAW_OX, DRAW_OY) lands at (a, cy+12)
+                g.screen.surface.blit(glyph, (a - DRAW_OX, cy + 12 - DRAW_OY))
 
 
 # ═══════════════════════════════════════════════════════════════════════════

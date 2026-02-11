@@ -7,6 +7,7 @@ Monochrome low-effort mode: uses simple shapes, no sprites.
 """
 
 import pygame
+from vga_font import get_glyph, CHAR_W as _VGA_CW, CHAR_H as _VGA_CH
 
 # ── VGA 16-color palette ─────────────────────────────────────────────────────
 VGA = [
@@ -77,12 +78,7 @@ class PygameScreen:
         self._last_x = 0      # last LINE/PSET endpoint for continuation
         self._last_y = 0
 
-        # Monospace font for text rendering (anti-alias OFF for pixel-crisp text)
-        self._font = pygame.font.SysFont("courier", 14, bold=False)
-        # Measure actual character width for alignment
-        m = self._font.metrics("W")
-        self._real_cw = m[0][4] if m and m[0] else 8
-        self._real_ch = self._font.get_linesize()
+        # No system font needed — we use the VGA bitmap font from vga_font.py
 
     # ── Color ─────────────────────────────────────────────────────────────
 
@@ -104,16 +100,20 @@ class PygameScreen:
         self._col = max(1, min(80, col))
 
     def print_text(self, text: str) -> None:
-        """Print text at current cursor position in current color."""
+        """Print text at current cursor position using VGA bitmap font."""
         x = (self._col - 1) * CHAR_W
         y = (self._row - 1) * CHAR_H
         # Clear background behind text
         tw = len(text) * CHAR_W
         pygame.draw.rect(self.surface, VGA[0], (x, y, tw, CHAR_H))
-        # Render text (anti-alias OFF for pixel-sharp look)
-        if text.strip():
-            surf = self._font.render(text, False, self._rgb())
-            self.surface.blit(surf, (x, y))
+        # Blit each character from the VGA bitmap font
+        rgb = self._rgb()
+        for ch in text:
+            code = ord(ch)
+            if 32 <= code <= 126:
+                glyph = get_glyph(code, rgb)
+                self.surface.blit(glyph, (x, y))
+            x += CHAR_W
         self._col += len(text)
 
     # ── Drawing primitives ────────────────────────────────────────────────
