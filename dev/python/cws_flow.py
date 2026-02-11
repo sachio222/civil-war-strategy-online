@@ -179,14 +179,18 @@ def engine(g: 'GameState') -> None:
         if g.rr[i] == 0:                                    # L79: notrane
             continue
         c = 9                                               # L80
-        bx = 15
         if i == 2:
             c = 15
-            bx = 60
-        # Simplified train icon: colored rectangle
-        s.pset(bx, 25, 3)                                   # L80
-        s.line(bx, 22, bx + 30, 32, c, "BF")
-        s.line(bx, 22, bx + 30, 32, 0, "B")
+        bx = 15 if i == 1 else 60
+        s.pset(bx, 25, 3)                                   # L80: set cursor
+        if i == 2:
+            s.pset(60, 25, 3)
+        # L81: DRAW train outline in black, scale S4 (1:1)
+        s.draw("C0S4R9D4R6U3R3D3R7U5H3U2R9D3G2D6F1D3F5"
+               "L10D1G1L4H2L7G2L3H2L3U8L2U5BF4")
+        # L82: PAINT fill interior with side color, bounded by black
+        fx, fy = s._last_x, s._last_y
+        s.paint(fx, fy, c, 0)
         # Destination text                                  L83
         dest = ""
         if g.rr[i] > 0 and g.armymove[g.rr[i]] > 0:

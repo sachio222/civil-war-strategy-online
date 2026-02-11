@@ -74,12 +74,16 @@ def tinytrain(g: 'GameState', who: int, flag: int) -> None:
 
     if flag > 0:                                            # L110: draw train
         s.line(x - 8, y - 6, x + 10, y + 7, 10, "BF")     # L111
-        # Simplified train icon (DRAW command L113 → colored rectangle)
         c = 9                                               # L112
         if who == 2:
             c = 15
-        s.line(x - 6, y - 4, x + 8, y + 5, c, "BF")       # train body
-        s.line(x - 6, y - 4, x + 8, y + 5, 0, "B")        # outline
+        s.pset(x - 6, y - 2, 3)                            # L112: set cursor
+        # L113: DRAW train outline in black at half scale (S2)
+        s.draw("C0S2R9D4R6U3R3D3R7U5H3U2R9D3G2D6F1D3F5"
+               "L10D1G1L4H2L7G2L3H2L3U8L2U5BF4S4")
+        # L114: PAINT fill interior with side color, bounded by black
+        fx, fy = s._last_x, s._last_y
+        s.paint(fx, fy, c, 0)
     else:                                                   # L115: erase
         s.line(x - 9, y - 8, x + 10, y + 8, 2, "BF")      # L116
 

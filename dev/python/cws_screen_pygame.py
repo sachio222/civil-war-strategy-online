@@ -213,7 +213,92 @@ class PygameScreen:
             c = self._fg_color
         self.line(self._last_x, self._last_y, x, y, c, style, pattern)
 
-    # ── Image operations (monochrome: store/restore pixel rectangles) ─────
+    # ── DRAW command interpreter ──────────────────────────────────────────
+
+    # Direction vectors: U D L R E F G H
+    _DRAW_DIR = {
+        'U': (0, -1), 'D': (0, 1), 'L': (-1, 0), 'R': (1, 0),
+        'E': (1, -1), 'F': (1, 1), 'G': (-1, 1), 'H': (-1, -1),
+    }
+
+    def draw(self, draw_str: str) -> tuple[int, int]:
+        """Execute a QBasic DRAW command string from the current cursor.
+
+        Supports: C<n> (color), S<n> (scale), B (blind), N (no-update),
+                  U/D/L/R/E/F/G/H <n> (direction with optional distance).
+
+        Returns (x, y) — the final cursor position (for POINT(0), POINT(1)).
+        """
+        cx = self._last_x
+        cy = self._last_y
+        color_idx = self._fg_color
+        scale = 4                     # default S4 = 1:1
+        i = 0
+        s = draw_str.upper()
+
+        while i < len(s):
+            ch = s[i]
+            i += 1
+
+            # ── Prefixes ──
+            blind = False
+            no_update = False
+            while ch in ('B', 'N'):
+                if ch == 'B':
+                    blind = True
+                elif ch == 'N':
+                    no_update = True
+                if i < len(s):
+                    ch = s[i]
+                    i += 1
+                else:
+                    break
+
+            # ── Color ──
+            if ch == 'C':
+                num = ''
+                while i < len(s) and s[i].isdigit():
+                    num += s[i]
+                    i += 1
+                color_idx = int(num) % 16 if num else 0
+                continue
+
+            # ── Scale ──
+            if ch == 'S':
+                num = ''
+                while i < len(s) and s[i].isdigit():
+                    num += s[i]
+                    i += 1
+                scale = int(num) if num else 4
+                continue
+
+            # ── Direction ──
+            if ch in self._DRAW_DIR:
+                num = ''
+                while i < len(s) and s[i].isdigit():
+                    num += s[i]
+                    i += 1
+                dist = int(num) if num else 1
+
+                dx, dy = self._DRAW_DIR[ch]
+                # scale / 4 is the step multiplier
+                nx = cx + int(dx * dist * scale / 4)
+                ny = cy + int(dy * dist * scale / 4)
+
+                if not blind:
+                    pygame.draw.line(self.surface, VGA[color_idx],
+                                     (cx, cy), (nx, ny))
+
+                if not no_update:
+                    cx, cy = nx, ny
+
+            # Anything else (spaces, etc.) is silently skipped
+
+        self._last_x = cx
+        self._last_y = cy
+        return (cx, cy)
+
+    # ── Image operations (store/restore pixel rectangles) ──────────────
 
     def put_image(self, x: int, y: int, sprite) -> None:
         """Blit a stored surface at position."""
