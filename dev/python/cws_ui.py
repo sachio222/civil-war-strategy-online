@@ -532,6 +532,9 @@ def _wait_menu_key(g: 'GameState') -> dict:
             if event.type == pygame.QUIT:
                 raise SystemExit
 
+            if event.type == pygame.VIDEORESIZE:
+                g.screen.update()
+
             if event.type == pygame.KEYDOWN:
                 key = event.key
 

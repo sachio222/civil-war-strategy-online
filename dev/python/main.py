@@ -44,7 +44,8 @@ def main():
     display_w = NATIVE_W * scale
     display_h = NATIVE_H * scale
 
-    display_surface = pygame.display.set_mode((display_w, display_h))
+    display_surface = pygame.display.set_mode(
+        (display_w, display_h), pygame.RESIZABLE)
     pygame.display.set_caption("CWS: Civil War Strategy")
 
     # Internal 640x480 surface — everything renders here, then gets
@@ -231,6 +232,10 @@ def _run_debug(g: GameState) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
+            elif event.type == pygame.VIDEORESIZE:
+                # Window resized — redraw at new size
+                g.screen.update()
 
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:

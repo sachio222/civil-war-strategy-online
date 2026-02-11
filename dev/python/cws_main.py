@@ -72,6 +72,8 @@ def _wait_key(g: 'GameState') -> None:
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
                 return
+            if ev.type == pygame.VIDEORESIZE:
+                g.screen.update()
             if ev.type == pygame.KEYDOWN:
                 return
         pygame.time.wait(30)

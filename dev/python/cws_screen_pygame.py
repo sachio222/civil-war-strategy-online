@@ -339,7 +339,10 @@ class PygameScreen:
             rw = 640 - rx
         if ry + rh > 480:
             rh = 480 - ry
-        return self.surface.subsurface((rx, ry, rw, rh)).copy()
+        # Create a fully independent copy (no subsurface reference)
+        img = pygame.Surface((rw, rh), flags=self.surface.get_flags())
+        img.blit(self.surface, (0, 0), (rx, ry, rw, rh))
+        return img
 
     # ── View/Clipping ─────────────────────────────────────────────────────
 
@@ -423,13 +426,35 @@ class PygameScreen:
     def update(self) -> None:
         """Push frame to display.
 
-        Nearest-neighbor-scales the internal 640x480 surface up to the
-        display window, preserving every pixel edge (no bilinear blur).
+        Nearest-neighbor-scales the internal 640x480 surface into the
+        display window with aspect-ratio-preserving letterbox/pillarbox,
+        keeping every pixel edge sharp (no bilinear blur).
         """
-        if self._display is not self.surface:
-            # pygame.transform.scale uses nearest-neighbor (no smoothing)
-            pygame.transform.scale(self.surface, self._display.get_size(),
-                                   self._display)
+        # Always use the live display surface (size changes on resize)
+        display = pygame.display.get_surface()
+        if display is None:
+            return
+
+        dw, dh = display.get_size()
+        nw, nh = self.surface.get_size()       # 640 x 480
+
+        # Fit nw x nh into dw x dh preserving aspect ratio
+        scale = min(dw / nw, dh / nh)
+        sw = int(nw * scale)
+        sh = int(nh * scale)
+        ox = (dw - sw) // 2
+        oy = (dh - sh) // 2
+
+        # Black letterbox/pillarbox bars
+        display.fill((0, 0, 0))
+
+        # Nearest-neighbor scale (pixel-sharp) and blit centered
+        if sw == dw and sh == dh:
+            pygame.transform.scale(self.surface, (sw, sh), display)
+        else:
+            scaled = pygame.transform.scale(self.surface, (sw, sh))
+            display.blit(scaled, (ox, oy))
+
         pygame.display.flip()
 
     def fill_rect(self, x: int, y: int, w: int, h: int, c: int) -> None:

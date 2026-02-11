@@ -386,6 +386,8 @@ def _wait_key() -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 raise SystemExit
+            if event.type == pygame.VIDEORESIZE:
+                flip()
             if event.type == pygame.KEYDOWN:
                 return
         pygame.time.wait(16)
@@ -406,6 +408,8 @@ def _input_text(g: 'GameState') -> str:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 raise SystemExit
+            if event.type == pygame.VIDEORESIZE:
+                s.update()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
                     return text

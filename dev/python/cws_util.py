@@ -47,6 +47,8 @@ def tick(g: 'GameState', seconds: float) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 raise SystemExit
+            if event.type == pygame.VIDEORESIZE:
+                g.screen.update()
             if event.type == pygame.KEYDOWN:
                 return  # any key press skips delay
         pygame.time.wait(16)  # ~60fps

@@ -418,9 +418,12 @@ def qb_play_interruptible(mml_string: str) -> bool:
 
 def _check_key() -> bool:
     """Check if any key has been pressed (non-blocking). Mimics INKEY$<>""."""
+    from cws_screen_pygame import flip as _flip
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             raise SystemExit
+        if event.type == pygame.VIDEORESIZE:
+            _flip()
         if event.type == pygame.KEYDOWN:
             return True
     return False
