@@ -1,0 +1,530 @@
+SUB battle (attack, defend, win, lose)
+IF armysize(defend) < 1 THEN armysize(defend) = 1
+IF armysize(attack) < 1 THEN armysize(attack) = 1
+
+CALL icon(armyloc(defend), 0, 9)
+LOCATE 1, 1: PRINT SPACE$(80)
+CALL clrrite: y = 68: COLOR 11: LOCATE 1, y: PRINT "Attacker"
+c = 9: IF attack > 20 THEN c = 7
+COLOR c: LOCATE 2, y: PRINT armyname$(attack)
+LOCATE 3, y: CALL strong(attack)
+x = .01 * armysize(attack): IF x > TCR THEN x = TCR
+LOCATE 4, y: PRINT "Base    "; x
+IF armysize(attack) / armysize(defend) > .2 THEN x = x + .3 * armylead(attack) + .3 * armyexper(attack): IF x > TCR THEN x = TCR
+IF armyexper(attack) > 8 THEN x = x + 1: IF x > TCR THEN x = TCR
+LOCATE 5, y: PRINT "Ldr/Exp "; x
+IF armysize(attack) < 15 THEN x = .5 * x: IF x > TCR THEN x = TCR
+LOCATE 6, y: PRINT "Small   "; x
+IF armysize(attack) / armysize(defend) <= .5 THEN x = x - 2: IF x < 1 THEN x = 1
+IF armysize(attack) / armysize(defend) > 3 THEN x = x + 2: IF x > TCR THEN x = TCR
+IF armysize(attack) / armysize(defend) > 10 THEN x = TCR
+IF armysize(attack) / armysize(defend) <= .2 THEN x = 1
+LOCATE 7, y: PRINT "Outman  "; x
+IF supply(attack) < 1 THEN x = .5 * x: COLOR 13
+LOCATE 8, y: PRINT "Supply  "; x: COLOR c
+IF x < 1 THEN x = 1
+'                       Adjust attack advantage
+IF attack < 21 AND side = 2 AND difficult > 3 THEN x = x + 2 * difficult - 6
+IF attack > 20 AND side = 1 AND difficult < 3 THEN x = x + 6 - 2 * difficult
+LOCATE 9, y: PRINT "Difclt  "; x
+IF x > TCR THEN x = TCR
+COLOR 11: LOCATE 11, y: PRINT "Attack  "; x
+LINE (530, 155)-(635, 175), 11, B
+
+x1 = .013 * armysize(defend) + 1: IF realism = 1 THEN x1 = .02 * armysize(defend) + 2: IF x1 > 20 THEN x1 = 20
+LOCATE 13, y: PRINT "Defender"
+COLOR 16 - c: LOCATE 14, y: PRINT armyname$(defend)
+LOCATE 15, y: CALL strong(defend)
+LOCATE 16, y: PRINT "Base    "; INT(.01 * armysize(defend))
+LOCATE 17, y: PRINT "Defense "; x1
+IF armysize(defend) / armysize(attack) > .2 THEN x1 = x1 + .3 * armylead(defend) + .3 * armyexper(defend): IF x1 > TCR THEN x1 = TCR
+IF armyexper(defend) > 8 THEN x1 = x1 + 1: IF x1 > TCR THEN x1 = TCR
+LOCATE 18, y: PRINT "Ldr/Exp "; x1
+IF armysize(defend) < 15 THEN x1 = .5 * x1
+LOCATE 19, y: PRINT "Small   "; x1
+
+R! = armysize(defend) / armysize(attack)
+SELECT CASE R!
+	CASE IS > 10
+		x1 = TCR
+	CASE IS > 1.5
+		x1 = x1 + 2
+	CASE IS < .5
+		x1 = .8 * x1
+	CASE IS < .2
+		x1 = .5 * x1
+END SELECT
+	IF x1 < 1 THEN x1 = 1
+	IF x1 > TCR THEN x1 = TCR
+
+LOCATE 20, y: PRINT "Outman  "; x1
+IF supply(defend) < 1 THEN x1 = .5 * x1: COLOR 13
+LOCATE 21, y: PRINT "Supply  "; x1: COLOR 16 - c
+IF x1 < 1 THEN x1 = 1
+'                       Adjust defend advantage
+IF defend < 21 AND side = 2 AND difficult > 3 THEN x1 = x1 + 2 * difficult - 6
+IF defend > 20 AND side = 1 AND difficult < 3 THEN x1 = x1 + 6 - 2 * difficult
+LOCATE 22, y: PRINT "Difclt  "; x1
+
+a$ = "Fort": IF armymove(defend) = 0 THEN x1 = x1 * (1 + fort(armyloc(defend)))
+IF x1 > TCR THEN x1 = TCR
+IF fort(armyloc(defend)) > 0 AND armymove(defend) = 0 THEN
+	COLOR 13: a$ = "Fort+"
+	IF fort(armyloc(defend)) = 2 THEN a$ = "Fort++"
+END IF
+LOCATE 23, y: PRINT a$; TAB(76); x1
+IF x1 > TCR THEN x1 = TCR
+COLOR 11: LOCATE 25, y: PRINT "Defend  "; x1
+LINE (530, 380)-(635, 400), 11, B
+
+spin = 0
+scale = x: IF x1 > scale THEN scale = x1
+scale = scale + 1
+
+odds! = x / (x + x1): a = INT(100 * odds!): IF a < 1 THEN a = 1
+a$ = LTRIM$(RTRIM$(STR$(a))) + "%"
+COLOR 14: LOCATE 27, y: PRINT "Odds:  "; a$;
+LINE (530, 412)-(635, 435), 14, B
+LINE (528, 410)-(637, 437), 14, B
+DO WHILE INKEY$ = "": LOOP
+IF graf > 2 THEN
+	CALL cannon
+	k = fort(armyloc(defend))
+	t$ = "fort" + LTRIM$(STR$(k)) + ".vga"
+	IF _FILEEXISTS(t$) THEN
+		DEF SEG = VARSEG(graphic(1))
+		BLOAD t$, VARPTR(graphic(1))
+		DEF SEG
+		PUT (550, 270), graphic, PSET
+	END IF
+ELSE
+	CALL clrrite
+END IF
+FOR i = 1 TO 2: IF supply(i) > 0 THEN supply(i) = supply(i) - 1
+NEXT i
+'---------------------------------------------------------------------------
+grapple:
+hit = 0: hit1 = 0
+star = scale * RND: fin = scale * RND
+IF noise > 0 THEN SOUND 77, .5: SOUND 59, .5: CALL TICK(.1)
+IF star <= x THEN hit = 1
+IF fin <= x1 THEN hit1 = 1
+
+IF hit = 0 AND hit1 = 0 GOTO grapple
+IF hit = 1 AND hit1 = 1 GOTO grapple
+win = defend: lose = attack: IF hit = 1 THEN win = attack: lose = defend
+'---------------------------------------------------------------------------
+a$ = "UNION": IF win > 20 THEN a$ = "REBEL"
+COLOR 14: LOCATE 3, 68: PRINT a$; " VICTORY"
+LOCATE 4, 71: PRINT "in"
+LOCATE 5, 69: PRINT city$(armyloc(defend))
+a = 1: IF win > 20 THEN a = 2
+CALL flags(a, 0, 0)
+CALL clrbot: COLOR 11: PRINT armyname$(win); " defeats "; armyname$(lose); " in "; city$(armyloc(defend)); : CALL TICK(9)
+'===========================================================================
+pct! = .01 * DEFAC - .03 * fort(armyloc(defend)): IF win = attack THEN pct! = 1.3 * pct!
+SELECT CASE armysize(defend)
+	CASE IS > 300
+		pct! = .9 * pct!
+	CASE IS > 800
+		pct! = .8 * pct!
+END SELECT
+xbar = armysize(attack) * pct!
+vary = xbar * (1 - pct!)
+CALL normal(xbar, vary, killd)
+'...........................................................................
+pct! = .01 * ATKFAC + .02 * fort(armyloc(defend)): IF win = defend THEN pct! = 1.5 * pct!
+SELECT CASE armysize(attack)
+	CASE IS > 300
+		pct! = .9 * pct!
+	CASE IS > 800
+		pct! = .8 * pct!
+END SELECT
+xbar = armysize(defend) * pct!
+vary = xbar * (1 - pct!)
+CALL normal(xbar, vary, killa)
+'===========================================================================
+
+killa = .8 * killa + .2 * killd: IF killa < 1 THEN killa = 1
+killd = .8 * killd + .2 * killa: IF killd < 1 THEN killd = 1
+IF killa > 9 * killd THEN killa = 9 * killd
+IF killd > 5 * killa THEN killd = 5 * killa
+
+IF killa >= armysize(attack) THEN killa = armysize(attack) - 1
+IF killd >= armysize(defend) THEN killd = armysize(defend) - 1
+'---------------------------------------------------------------------------
+x = INT(100 * odds!): IF x < 1 THEN x = 1
+a$ = LTRIM$(RTRIM$(STR$(x))) + "%"
+
+COLOR c
+LOCATE 1, 1: PRINT "Attack Loss: ";
+PRINT LTRIM$(RTRIM$(STR$(killa)) + "00"); "/";
+CALL strong(attack)
+PRINT " ("; LTRIM$(RTRIM$(STR$(INT(100 * (killa / armysize(attack)))))); "%) |";
+COLOR 16 - c: PRINT "| Defend Loss: "; : PRINT LTRIM$(RTRIM$(STR$(killd)) + "00"); "/";
+CALL strong(defend)
+PRINT " ("; LTRIM$(RTRIM$(STR$(INT(100 * (killd / armysize(defend)))))); "%)"
+'---------------------------------------------------------------------------
+mtx$(1) = " (" + LTRIM$(RTRIM$(STR$(killa) + "00")) + "/" + LTRIM$(STR$(armysize(attack)) + "00") + ") "
+t$ = " (" + LTRIM$(RTRIM$(STR$(killd) + "00")) + "/" + LTRIM$(STR$(armysize(defend)) + "00") + ")"
+mtx$(2) = t$
+IF win = defend THEN mtx$(2) = mtx$(1): mtx$(1) = t$
+mtx$(3) = "*" + armyname$(win): mtx$(4) = armyname$(lose)
+IF win = defend THEN mtx$(3) = armyname$(win): mtx$(4) = "*" + armyname$(lose)
+a$ = city$(armyloc(defend)) + ": " + mtx$(3) + mtx$(1) + " defeats " + mtx$(4) + mtx$(2)
+CALL scribe(a$, 0)
+
+IF player = 1 AND (side = 1 AND attack > 20) OR (side = 2 AND attack < 21) THEN
+COLOR 14: CALL clrbot: PRINT "hit any key to continue"; : DO WHILE INKEY$ = "": LOOP
+END IF
+
+armysize(attack) = armysize(attack) - killa
+armysize(defend) = armysize(defend) - killd
+IF armysize(defend) < 1 THEN armysize(defend) = 1
+'---------------------------------------------------------------------------
+s = 1: IF attack > 2 THEN s = 2
+casualty&(s) = casualty&(s) + killa
+casualty&(3 - s) = casualty&(3 - s) + killd
+'---------------------------------------------------------------------------
+s = 1: IF win > 20 THEN s = 2
+batwon(s) = batwon(s) + 1
+victory(s) = victory(s) + 1
+CALL icon(armyloc(defend), 0, 8)
+END SUB
+SUB fortify (target)
+	target = 0: hilite = 11
+	tlx = 67: tly = 2
+	who = side
+	CALL starfin(star, fin, who)
+	size = 0
+	FOR i = star TO fin
+	IF armyloc(i) > 0 AND fort(armyloc(i)) < 2 THEN
+		size = size + 1
+		mtx$(size) = city$(armyloc(i))
+		array(size) = armyloc(i)
+	END IF
+	NEXT i
+	IF size = 0 THEN CALL clrbot: COLOR 11: PRINT "No cities eligible to fortify"; : EXIT SUB
+	CALL bubble(size)
+	mtx$(0) = "Fortify"
+		choose = 31
+		CALL menu(9): CALL clrrite
+		IF choose < 0 GOTO nocity
+		target = array(choose): CALL occupy(target): x = occupied(target): IF x < 0 GOTO nocity
+		IF fort(target) > 1 THEN CALL clrbot: PRINT city$(target); " at MAXIMUM fortification level of 2"; : CALL TICK(4): GOTO nocity
+		cost = 200
+		IF cash(side) < cost THEN CALL clrbot: PRINT "Fortifications for "; city$(target); " cost "; cost; " and you only have "; cash(side); : CALL TICK(4): GOTO nocity
+		COLOR 3
+		fort(target) = fort(target) + 1
+		cash(side) = cash(side) - cost
+		CALL clrbot: PRINT city$(target); " fortifications increased to "; fort(target);
+		CALL icon(target, 0, 6)
+		CALL showcity
+		IF armymove(x) > 0 THEN CALL icon(armyloc(x), armymove(x), 5)
+		armymove(x) = -1
+		CALL placearmy(x)
+		CALL stax(who)
+nocity:
+END SUB
+SUB strong (index)
+a$ = LTRIM$(RTRIM$(STR$(armysize(index)))) + "00"
+PRINT a$;
+END SUB
+SUB cannon
+CALL clrrite
+LINE (528, 80)-(639, 310), 3, BF
+LINE (528, 310)-(639, 435), 2, BF
+LINE (528, 405)-(639, 420), 0, BF
+PSET (580, 380), 0
+
+DRAW "BR15"
+x = POINT(0): y = POINT(1): CIRCLE (x, y), 25, 1, , , 1.4
+CIRCLE (x + 5, y), 27, 1, 4, 1.5, 1.4
+CIRCLE (x, y), 29, 1, , , 1.4
+DRAW "BR20"
+x = POINT(0): y = POINT(1): PAINT (x, y), 3, 1
+DRAW "BR3BU7"
+x = POINT(0): y = POINT(1): PAINT (x, y), 5, 1
+DRAW "BL15C7G4L50H1L12H1L7H3U1H1U4E5R6E1R13E1R52F3D2R1E1R1F2D5G3H2G2BL2"
+DRAW "BH2C6"
+x = POINT(0): y = POINT(1): PAINT (x, y), 7
+DRAW "BD2R4C0G4L50H1L12H1L7H3U1H1U4E5R6E1R13E1R52F3D2R1E1R1F2D5G3H2G2BR5U3"
+DRAW "C8G2H2G6L15G1L32H1L1H1L19H3E2R2F1R6"
+DRAW "E2R4F1R6E1R58F1G2BL9BH2BU5BR3C15H1L48G1L13G1L4"
+DRAW "BD3BF3BR9"
+x = POINT(0): y = POINT(1): PAINT (x, y), 8
+DRAW "BR34BE1BR7BL5BD8C6R16F5D1F4D6F7R17D7L30H18L8H4L18H3U5R33BR17BD5"
+x = POINT(0): y = POINT(1): PAINT (x, y), 6
+DRAW "BU5C8F8D7F6R1F1R16D7E3U7G3E2BE2C8L16H6U8C8G3BE3C8H8G6BR5"
+x = POINT(0): y = POINT(1): PAINT (x, y), 8
+DRAW "BL38"
+x = POINT(0): y = POINT(1): CIRCLE (x, y), 30, 4, , , 1.4
+CIRCLE (x + 5, y), 35, 4, 4, 1.5, 1.4
+CIRCLE (x, y), 35, 4, , , 1.4
+CIRCLE (x, y), 8, 4, , , 1.4: PAINT (x, y), 1, 4: PAINT (x, y), 0, 4
+DRAW "BR23"
+x = POINT(0): y = POINT(1): PAINT (x, y), 1, 4: PAINT (x, y), 4, 4
+DRAW "BR5BU7"
+x = POINT(0): y = POINT(1): PAINT (x, y), 1, 4: PAINT (x, y), 0, 4
+DRAW "BU22BL28"
+DRAW "C4D20R1U19BD37C4D20L1U21BH2BL1BH1C4G12F1E11BU3BH2"
+DRAW "BU3BL1C4L13U1R15BR1BU3C4H12E1F11BF5BE4C4E11F1G11BD3C4R13D1L10D3BL3BD1C4"
+DRAW "F12G1H12BL33BH13BU3BH2BU1BE1BR2BU1BE1BR1"
+DRAW "BL5BU5C8E4U1"
+DRAW "H4E3H3U3E3H6L3G7F1H7E2U2E2H7L7G9D6F8G3L1H3L5G7D4F4R2D3F3R2G5D4L4G4D5F8D2"
+DRAW "R5F9E3F5R6E6H4E2F6R3E8F1E4H5U2H3U1H1U7E4H7BL5"
+x = POINT(0): y = POINT(1): PAINT (x, y), 8, 8
+DRAW "BR9BD6C15H8L1H2L12G1F5L8G4F4R3G3D1G2D3F2E5G1D8R4E3D6F3E12H1U1H1U6E5BH6BU4"
+DRAW "BD15"
+x = POINT(0): y = POINT(1): PAINT (x, y), 14, 15
+END SUB
+SUB capture (active, c, s, flag)
+	cityp(c) = s: CALL clrbot
+	a$ = armyname$(active) + " has captured " + city$(c)
+	COLOR 11: PRINT armyname$(active) + " has captured " + city$(c);
+	IF active < 21 AND noise > 1 THEN PLAY "MNMFL16o2T120dd.dd.co1b.o2do3g.ab.bb.ag"
+	IF active > 20 AND noise > 1 THEN PLAY "MNMFT160o2L16geL8ccL16cdefL8ggge"
+	IF c <> capcity(3 - s) THEN CALL flashcity(c)
+	victory(s) = victory(s) + cityv(c)
+	IF c = capcity(3 - s) THEN
+		victory(s) = victory(s) + 100
+		victory(3 - s) = victory(3 - s) - 100
+		a$ = force$(3 - s) + " CAPITAL captured !"
+		CALL scribe(a$, 1)
+		CALL image2(city$(capcity(3 - s)) + " has fallen!", 4)
+		capcity(3 - s) = 0
+		CALL flashcity(c)
+	END IF
+	IF fort(c) > 0 AND flag > 0 THEN fort(c) = fort(c) - 1: x = cityx(c): y = cityy(c): LINE (x - 5, y - 5)-(x + 5, y + 5), 2, BF: CALL showcity
+END SUB
+SUB evaluate (index, x)
+from = armyloc(index)
+x = 200: IF aggress! > 1.5 THEN x = 80: IF aggress! > 2 THEN x = 20: IF aggress! > 3 THEN x = 5
+CALL void(from, defend): IF defend = 0 THEN x = 0
+IF bold > 1 THEN x = .5 * x
+
+best = armysize(index)
+
+FOR j = 1 TO 6: array(j) = -1
+a = matrix(from, j): IF a > 0 THEN IF occupied(a) > 0 THEN best = best - armysize(occupied(a)): y = 1
+NEXT j: best = .01 * best
+IF bold > 0 THEN best = best + 20 * bold
+
+CALL starfin(star, fin, 3 - side)
+
+FOR j = 1 TO 6
+	y = -1: a = matrix(from, j): IF a = 0 THEN max = j - 1: GOTO alleval
+      
+	c = occupied(a)
+	FOR k = star TO fin: IF armyloc(k) > 0 THEN IF armymove(k) = a AND c = 0 GOTO alle
+	NEXT k
+	
+	y = best - x * fort(from) - cityv(from) + 30 * RND
+	IF fort(from) > 0 THEN IF index = occupied(from) THEN y = y - 25: IF realism > 0 THEN y = y - 50
+	IF a = capcity(side) THEN IF vicflag(5) > 0 THEN y = y + 200
+	IF cityp(a) <> 3 - side THEN y = y + 5 * cityv(a) + 10 * fort(a)
+	IF cityp(a) <> side GOTO ourn
+	   IF c = 0 THEN y = y + 10 * cityv(a): GOTO ourn
+	   x1 = 1: IF fort(a) = 1 THEN x1 = 2: IF fort(a) = 3 THEN x1 = 3
+
+	   IF armysize(c) > 0 THEN
+		odds! = armysize(index) / (x1 * armysize(c))
+		IF realism > 1 THEN odds! = .8 * odds!
+	   ELSE
+		odds! = 5
+	   END IF
+
+	   IF armysize(index) < 15 THEN y = y - 300: odds! = .1
+	   IF bold < 3 AND armysize(index) < 40 AND odds! < .8 THEN y = 0
+	   IF realism > 0 THEN y = y - 15
+	   IF odds! < .5 THEN y = y - 200
+	   IF bold = 0 AND RND > .9 THEN y = y + 10 * (armylead(index) - armylead(c) + armyexper(index) - armylead(index))
+	   IF supply(index) < 1 THEN y = y - 100
+	   SELECT CASE odds! + .5 * bold
+		CASE IS < .3
+		y = -9999
+		CASE IS < .5
+		y = y - 300
+		CASE IS <= .8
+		y = y - 20
+		CASE .8 TO 1.2
+		y = y - 5
+		CASE 1.2 TO 1.5
+		y = y + 10
+		CASE ELSE
+		y = y + .5 * (armysize(index) - armysize(c)) + 50 * RND
+	   END SELECT
+ourn:
+	IF cityp(a) = 3 - side AND c > 0 AND armymove(c) = 0 THEN y = y - armysize(c)
+	IF side = 1 AND cityy(a) < cityy(from) THEN y = y + 2
+	IF side = 2 AND cityy(a) > cityy(from) THEN y = y + 2
+'---------------------------------------------------------------------------
+	FOR k = 1 TO 6: m = matrix(a, k): IF m = 0 GOTO tally3
+	IF cityp(m) = 0 THEN y = y + 3 * cityv(m) + 4 * fort(m)
+	IF cityp(m) = side THEN y = y + 3 * cityv(m) + 4 * fort(m)
+	IF cityp(m) = side AND c > 0 THEN
+		odds! = 5 - 4 * RND
+		IF armysize(c) > 0 THEN odds! = armysize(index) / armysize(c) ELSE odds! = 5
+		IF odds! < 1 THEN y = y - 2
+	END IF
+	IF cityp(m) = capcity(side) THEN y = y + 50
+tally3:
+	NEXT k
+'---------------------------------------------------------------------------
+	array(j) = y
+alle:
+NEXT j: max = 6
+alleval:
+x = 0: best = 0
+FOR j = 1 TO max
+IF array(j) < 0 GOTO allof
+	IF array(j) > x THEN x = array(j): best = j
+allof:
+NEXT j
+	IF defend > armysize(index) AND array(best) < 50 THEN best = 0
+	x = best
+END SUB
+SUB retreat (defend, x)
+x = 0
+IF player = 1 THEN
+	IF (side = 1 AND defend > 20) OR (side = 2 AND defend < 21) THEN EXIT SUB
+END IF
+
+hilite = 13: colour = 3: tlx = 67: tly = 5: size = 0
+y = armyloc(defend)
+who = 1: IF defend > 20 THEN who = 2
+FOR k = 1 TO 6
+	IF matrix(y, k) > 0 AND cityp(matrix(y, k)) = who THEN size = size + 1: mtx$(size) = city$(matrix(y, k)): array(size) = matrix(y, k)
+NEXT k
+	IF size = 0 THEN EXIT SUB
+	IF size = 1 THEN x = array(1): EXIT SUB
+	mtx$(0) = "Retreat"
+	CALL bubble(size)
+	CALL menu(9)
+	CALL clrrite
+	IF choose < 0 OR choose > size THEN x = 0: EXIT SUB
+	x = array(choose)
+END SUB
+SUB surrender (who)
+SCREEN 12
+s = 1: c = 1: COLOR 0: w = 514
+IF who > 20 THEN c = 7: s = 2
+'               background
+LINE (w + 15, 440)-(w + 125, 16), 2, BF
+LINE (w + 15, 16)-(w + 125, 290), 3, BF
+LINE (w + 14, 16)-(w + 125, 440), c, B
+x = 77: y = 280
+CIRCLE (w + x + 10, y + 30), 30, 4, , , .1
+PAINT (w + x + 10, y + 30), 6, 4
+LINE (w + x, y + 28)-(w + x + 6, y + 28): LINE -(w + x + 6, y + 8)
+LINE -(w + x + 8, y + 8): LINE -(w + x + 8, y + 28)
+LINE -(w + x + 12, y + 28): LINE -(w + x + 12, y + 12)
+LINE -(w + x + 15, y + 12): LINE -(w + x + 15, y + 30)
+LINE -(w + x + 18, y + 30): LINE -(w + x + 18, y + 20)
+LINE -(w + x + 21, y + 21): LINE -(w + x + 21, y + 32)
+LINE -(w + x + 25, y + 32): LINE -(w + x + 25, y + 17)
+LINE -(w + x + 27, y + 17): LINE -(w + x + 25, y - 10)
+LINE -(w + x + 19, y - 14): LINE -(w + x + 15, y - 5)
+LINE -(w + x + 12, y - 12): LINE -(w + x + 8, y - 15)
+LINE -(w + x + 6, y - 15): LINE -(w + x + 6, y - 11)
+LINE -(w + x + 3, y - 14): LINE -(w + x + 2, y - 14)
+LINE -(w + x + 1, y - 10): LINE -(w + x - 3, y - 11)
+LINE -(w + x - 3, y + 15): LINE -(w + x, y + 15)
+LINE -(w + x, y - 3): LINE -(w + x + 2, y - 3)
+LINE -(w + x, y + 28)
+PAINT (w + x + 10, y), 8 - c, 0
+
+CIRCLE (w + x + 7, y - 10), 3, 0: PAINT (w + x + 7, y - 10), 0, 0
+CIRCLE (w + x + 20, y - 8), 3, 0: PAINT (w + x + 20, y - 8), 0, 0
+
+LINE (w + x + 5, y - 30)-(w + x + 6, y - 9)
+LINE (w + x + 20, y)-(w + x + 35, y + 30)
+LINE (w + x + 20, y + 1)-(w + x + 35, y + 31)
+LINE (w + x + 22, y - 31)-(w + x + 21, y - 8)
+LINE (w + x - 1, y - 28)-(w + x, y - 8)
+'                       boot
+CIRCLE (w + 37, 425), 22, 8, , , .3
+PAINT (w + 37, 430), 8, 8
+LINE (w + 26, 426)-(w + 46, 426)
+LINE -(w + 46, 423): LINE -(w + 36, 419)
+LINE -(w + 36, 397): LINE -(w + 26, 397)
+LINE -(w + 26, 426)
+PAINT (w + 27, 399), 0, 0
+'                       arm
+LINE (w + 26, 397)-(w + 25, 396): LINE -(w + 24, 374)
+LINE -(w + 25, 346): LINE (w + 25, 346)-(w + 22, 341)
+LINE -(w + 46, 341): LINE -(w + 46, 349)
+LINE -(w + 41, 365): LINE -(w + 41, 380)
+LINE -(w + 36, 398)
+PAINT (w + 30, 350), c, 0
+'                       saber
+LINE (w + 55, 288)-(w + 58, 360), 14, BF
+LINE (w + 55, 288)-(w + 55, 360), 14
+LINE (w + 56, 361)-(w + 55, 360), 14
+LINE (w + 57, 361)-(w + 58, 350), 14
+LINE (w + 58, 350)-(w + 58, 288), 14
+LINE (w + 55, 272)-(w + 62, 288), 6, B
+LINE (w + 56, 273)-(w + 61, 287), 6, B
+LINE (w + 57, 274)-(w + 60, 286), 6, B
+		  
+LINE (w + 54, 295)-(w + 60, 305), 12, BF
+LINE (w + 53, 294)-(w + 61, 306), 0, B
+LINE (w + 57, 303)-(w + 61, 303)
+LINE (w + 57, 298)-(w + 61, 298)
+LINE (w + 34, 310)-(w + 46, 312), c, BF
+LINE (w + 25, 380)-(w + 35, 378)
+LINE (w + 25, 365)-(w + 34, 366)
+'                       shoulder
+COLOR 0
+LINE (w + 53, 297)-(w + 31, 305): LINE -(w + 25, 270)
+LINE -(w + 18, 270): LINE -(w + 16, 275)
+LINE -(w + 21, 309): LINE -(w + 28, 316)
+LINE -(w + 52, 306): LINE -(w + 53, 298)
+PAINT (w + 20, 280), c, 0
+LINE (w + 30, 310)-(w + 32, 305): LINE -(w + 25, 307)
+LINE (w + 46, 298)-(w + 47, 275)
+LINE (w + 47, 275)-(w + 41, 269)
+LINE (w + 41, 269)-(w + 25, 269)
+PAINT (w + 45, 275), c, 0
+CIRCLE (w + 40, 275), 1, 14
+CIRCLE (w + 40, 285), 1, 14
+CIRCLE (w + 40, 295), 1, 14
+
+LINE (w + 21, 306)-(w + 18, 340)
+LINE (w + 18, 340)-(w + 47, 340)
+LINE (w + 46, 310)-(w + 48, 339)
+PAINT (w + 30, 330), c, 0
+LINE (w + 46, 312)-(w + 21, 316), 0, BF
+LINE (w + 25, 312)-(w + 35, 313), c, BF
+
+LINE (w + 30, 268)-(w + 41, 264), 12, BF
+LINE (w + 30, 263)-(w + 41, 263), 0
+LINE (w + 30, 264)-(w + 26, 260): LINE -(w + 25, 248)
+LINE -(w + 28, 243): LINE -(w + 46, 243)
+LINE -(w + 48, 245): LINE -(w + 48, 248)
+LINE -(w + 51, 254): LINE -(w + 51, 255)
+LINE -(w + 48, 256): LINE -(w + 48, 261)
+LINE -(w + 46, 263): LINE -(w + 39, 263)
+PAINT (w + 40, 250), 12, 0
+
+LINE (w + 16, 242)-(w + 57, 241), 0, BF
+LINE (w + 45, 240)-(w + 28, 240)
+LINE -(w + 31, 232): LINE -(w + 45, 232)
+LINE -(w + 48, 240)
+PAINT (w + 40, 235), c, 0
+
+LINE (w + 80, 303)-(w + 81, 200), 6, BF
+
+LINE (w + 48, 251)-(w + 44, 250), 0, B
+LINE (w + 29, 263)-(w + 43, 266)
+LINE -(w + 46, 266): LINE -(w + 48, 263)
+LINE -(w + 48, 260): LINE -(w + 37, 258)
+LINE -(w + 36, 255): LINE -(w + 37, 250)
+LINE -(w + 39, 246): LINE -(w + 40, 243)
+c = 0: IF s = 2 THEN c = 15: LINE (547, 263)-(558, 263), 15
+PAINT (w + 33, 250), c, 0
+PAINT (w + 42, 264), c, 0
+
+CALL flags(3 - s, 26, 0)
+IF who < 99 THEN CALL TICK(turbo!)
+END SUB

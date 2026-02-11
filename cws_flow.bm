@@ -1,0 +1,437 @@
+SUB iterate
+'---------------------------------------------------------------------------
+FOR i = 1 TO 40: IF armyloc(i) > 0 THEN CALL placearmy(i)
+NEXT i
+'---------------------------------------------------------------------------
+month = month + 2
+IF month > 12 THEN month = 1: year = year + 1
+'---------------------------------------------------------------------------
+s = 1
+FOR i = 1 TO 40: IF armyloc(i) < 1 GOTO rip
+IF i > 20 THEN s = 2
+IF cash(s) >= .2 * armysize(i) THEN
+	a = 1: IF realism > 0 THEN CALL cutoff(s, armyloc(i), a)
+	IF a > 0 THEN
+		supply(i) = supply(i) + 1
+		cash(s) = cash(s) - .2 * armysize(i)
+	END IF
+END IF
+IF (month < 7 OR month > 10) AND matrix(armyloc(i), 7) < 99 THEN supply(i) = supply(i) - 1
+IF matrix(armyloc(i), 7) = 99 AND navyloc(3 - s) = armyloc(i) THEN supply(i) = supply(i) - 1: CALL clrbot: PRINT armyname$(i); " is blockaded"; : CALL TICK(turbo!)
+COLOR 13
+IF supply(i) < 1 THEN
+	supply(i) = 0
+	CALL clrbot
+	PRINT armyname$(i); " is out of supplies";
+	CALL placearmy(i)
+	CALL TICK(turbo!)
+	IF RND > .8 AND armysize(i) > 50 THEN armysize(i) = .9 * armysize(i)
+END IF
+rip:
+NEXT i
+FOR k = 1 TO 2: CALL stax(k): NEXT k
+y = 0: FOR i = 1 TO 20: y = y + .1 * armysize(i): NEXT i
+x = 0: FOR i = 21 TO 40: x = x + .1 * armysize(i): NEXT i
+IF side = 2 AND x > 0 THEN aggress! = y / x ELSE aggress! = 1
+IF side = 1 AND y > 0 THEN aggress! = x / y ELSE IF side = 1 THEN aggress! = 1
+END SUB
+SUB endit
+	a$ = STR$(ABS(vicflag(3)) * 2.5) + "% Cities"
+	t$ = STR$(ABS(vicflag(3)) * 2.5) + "% Total Income"
+	mtx$(8) = "Time: " + month$(vicflag(1)) + STR$(ABS(vicflag(2)))
+	mtx$(9) = RTRIM$(STR$(ABS(vicflag(6)))) + ":1 Force Ratio"
+	COLOR 15: LOCATE 1, 1: PRINT "Press ENTER to toggle ending conditions";
+	COLOR 14: PRINT "				ESC when done"
+what4:
+	FOR i = 2 TO 6: IF vicflag(i) > 0 THEN mtx$(i - 1) = "+ " ELSE mtx$(i - 1) = "  "
+	NEXT i
+	choose = chosit
+	mtx$(0) = "Victory Conditions"
+	mtx$(1) = mtx$(1) + mtx$(8)
+	mtx$(2) = mtx$(2) + a$
+	mtx$(3) = mtx$(3) + t$
+	mtx$(4) = mtx$(4) + "Capital Captured"
+	mtx$(5) = mtx$(5) + mtx$(9)
+	mtx$(6) = "DONE"
+	wtype = 2: colour = 3: size = 6: hilite = 14
+	CALL menu(0)
+	chosit = 21 + choose
+SELECT CASE choose
+	CASE 1
+	vicflag(2) = -vicflag(2)
+	CASE 2 TO 5
+	vicflag(choose + 1) = -vicflag(choose + 1)
+	CASE ELSE
+	GOTO cheer
+END SELECT
+	GOTO what4
+cheer:
+	CLS
+	CALL usa
+END SUB
+SUB engine
+IF rr(1) + rr(2) = 0 GOTO notrain
+LINE (5, 17)-(100, 63), 3, BF
+LINE (5, 17)-(100, 47), 0, B
+LINE (5, 47)-(100, 63), 0, B
+
+FOR i = 1 TO 2
+IF rr(i) = 0 GOTO notrane
+PSET (15, 25), 3: c = 9: IF i = 2 THEN c = 15: PSET (60, 25), 3
+DRAW "C0S4R9D4R6U3R3D3R7U5H3U2R9D3G2D6F1D3F5L10D1G1L4H2L7G2L3H2L3U8L2U5BF4"
+x = POINT(0): y = POINT(1): PAINT (x, y), c, 0
+LOCATE 4, 6 * (i - 1) + 2: PRINT LEFT$(city$(armymove(rr(i))), 5)
+notrane:
+NEXT i
+
+notrain:
+END SUB
+SUB events
+'==========================================================================
+'                              Special Events
+'==========================================================================
+IF realism > 0 AND year = 1862 AND month < 3 THEN
+	COLOR 14: CALL clrbot
+	PRINT "SPECIAL DEVELOPMENT : IRONCLAD ships now available";
+	IF noise > 0 THEN FOR k = 1 TO 5: SOUND 140, 1: SOUND 37, 1: NEXT k
+	DO WHILE INKEY$ = "": LOOP
+	EXIT SUB
+END IF
+IF randbal = 0 THEN EXIT SUB
+plus = difficult: IF side = 1 THEN plus = 6 - difficult
+pct! = .005 * (year - 1860) * plus * plus: IF pct! > .9 THEN pct! = .9
+IF RND > pct! THEN EXIT SUB
+
+CALL clrbot: COLOR 14: PRINT "SPECIAL EVENT...";
+who = 1: IF RND > .1 * randbal THEN who = 2
+
+SELECT CASE who
+'----------------------------------------------------------------------------
+'                               good for South
+'----------------------------------------------------------------------------
+	CASE 1
+	IF year = 1864 AND month = 1 THEN victory(2) = victory(2) + 50
+	IF year = 1865 AND month = 1 THEN victory(2) = victory(2) + 100
+	IF RND > .9 THEN GOSUB riot: EXIT SUB
+
+	CALL clrbot
+	IF RND > .2 OR navysize(2) > 9 GOTO mercen
+	IF navysize(2) > 0 AND navyloc(2) <> 99 THEN empty = navyloc(2): GOTO float1
+		empty = 0
+		FOR i = 1 TO 40
+		IF cityp(i) = 2 AND matrix(i, 7) = 99 AND navyloc(1) <> i THEN empty = i: EXIT FOR
+		NEXT i
+	IF empty = 0 GOTO mercen
+float1:
+	CALL scribe("England has given ships to the South", 2)
+	navysize(2) = navysize(2) + 2 * plus
+	IF navysize(2) > 10 THEN navysize(2) = 10
+	x = navysize(2) - LEN(fleet$(2))
+	fleet$(2) = fleet$(2) + STRING$(x, "W")
+	navyloc(2) = empty: CALL ships
+	GOTO dull1
+mercen:
+	IF RND > .1 OR control(2) < 30 GOTO money
+	a$ = "French": IF RND > .5 THEN a$ = "British"
+	CALL scribe(a$ + " mercenaries join " + armyname$(index) + "'s army", 2)
+	armysize(index) = armysize(index) + 100 * plus
+	armyexper(index) = 10: supply(index) = 10
+	GOTO dull1
+money:
+	IF RND > .3 OR control(2) < 12 GOTO cotton
+		CALL scribe("The South has obtained a loan from Europe", 2)
+		GOTO purse
+cotton:
+	IF RND > .5 OR control(2) < 12 GOTO uprising
+	CALL scribe("Cash from cotton sales fill the Rebel Treasury", 2)
+purse:
+	cash(2) = cash(2) + 100 * plus
+	GOTO dull1
+uprising:
+	pct! = .9
+	a$ = "Union troops diverted to fight Western Indian uprisings"
+	IF RND > .5 THEN a$ = "Union 90-day enlistees return home"
+	IF year = 1864 AND month > 5 THEN a$ = "20% of Union forces take furloughs to vote in 1864 elections": pct! = .8
+	CALL scribe(a$, 2)
+	FOR k = 1 TO 20
+	armysize(k) = pct! * armysize(k)
+	NEXT k
+	GOTO dull1
+'----------------------------------------------------------------------------
+riot:
+	IF realism = 0 THEN RETURN
+	IF control(who) = 1 THEN EXIT SUB
+	FOR k = 1 TO 99
+	x = 1 + INT(40 * RND)
+		IF cityo(x) <> who AND cityp(x) = who AND occupied(x) = 0 THEN
+			CALL clrbot: COLOR 15
+			PRINT " Riots have broken out in "; city$(x);
+			cityp(x) = 0
+			CALL showcity
+			TICK turbo!
+			CALL clrbot
+			CALL image2(city$(x) + " is now NEUTRAL !", 4)
+			TICK turbo!
+			RETURN
+		END IF
+	NEXT k
+	RETURN
+'----------------------------------------------------------------------------
+'                               good for Union
+'----------------------------------------------------------------------------
+	CASE 2
+	IF RND > .1 OR navyloc(1) = 0 OR navysize(1) > 9 GOTO event2
+	IF RND > .95 THEN GOSUB riot: EXIT SUB
+	CALL scribe("Union shipworks have produced extra ships", 2)
+	navysize(1) = navysize(1) + plus
+	IF navysize(1) > 10 THEN navysize(1) = 10
+	x = navysize(1) - LEN(fleet$(1))
+	fleet$(1) = fleet$(1) + STRING$(x, "W")
+	GOTO dull2
+event2:
+	IF RND < .7 GOTO abe
+	CALL scribe("Volunteer troops swell the Union ranks", 2)
+	x = 0: FOR i = 1 TO 20: x = x + 1: IF x > 5 GOTO dull2
+	IF armysize(i) > 0 AND RND > .5 THEN armysize(i) = armysize(i) * 1.1 + plus
+	NEXT i: GOTO dull2
+abe:
+	IF emancipate = 0 AND year > 1862 THEN
+
+		emancipate = 1
+		CALL scribe("Abraham Lincoln announces the Emancipation Proclamation", 2)
+		victory(1) = victory(1) + 100: victory(2) = victory(2) - 100
+		CALL usa
+		GOTO dull2
+	END IF
+	IF year = 1864 AND month = 11 THEN
+		CALL scribe("Lincoln has been reelected", 2)
+		victory(2) = .5 * victory(2)
+		GOTO dull2
+	END IF
+	IF RND > .5 THEN
+		CALL scribe("Wealthy Unionists give generously to the Federal Cause", 2)
+		cash(1) = cash(1) + 100 * plus
+		GOTO dull2
+	END IF
+	IF RND > .5 AND year > 1861 THEN
+		CALL scribe("Rebel deserters leave the battlefield to go home", 2)
+		FOR i = 21 TO 40: armysize(i) = .92 * armysize(i): NEXT i: GOTO dull2
+	END IF
+	IF RND > .5 AND year > 1861 THEN
+		CALL scribe("Union soldiers now have repeating rifles", 2)
+		FOR i = 1 TO 20
+			IF armyexper(i) < 9 THEN armyexper(i) = armyexper(i) + 2
+		NEXT i
+	END IF
+		CALL scribe("Secretary of War Stanton predicts the end of the Rebellion", 2)
+		victory(1) = victory(1) + 10: GOTO dull2
+	CASE ELSE
+END SELECT
+
+dull2:
+	IF noise = 2 THEN PLAY "MNMFL16o2T120dd.dd.co1b.o2do3g.ab.bb.ag"
+	DO WHILE INKEY$ = "": LOOP: EXIT SUB
+dull1:
+	IF noise = 2 THEN PLAY "MNMFT160o2L16geL8ccL16cdefL8ggge"
+	DO WHILE INKEY$ = "": LOOP
+END SUB
+SUB victor
+	x = 0: FOR j = 1 TO 20: IF armyloc(j) > 0 THEN x = x + armysize(j)
+	NEXT j
+	y = 0: FOR j = 21 TO 40: IF armyloc(j) > 0 THEN y = y + armysize(j)
+	NEXT j
+
+	CALL clrbot: COLOR 14
+	IF vicflag(2) > 0 AND year >= vicflag(2) AND month < vicflag(1) THEN
+		a$ = "Time almost expired (" + month$(vicflag(1)) + "," + STR$(vicflag(2)) + ")"
+		CALL image2(a$, 4)
+	END IF
+    FOR i = 1 TO 2
+	IF (i = 1 AND y = 0) OR (i = 2 AND x = 0) THEN j = 7: victory(i) = victory(i) + 300: GOTO finis
+
+	IF year >= vicflag(2) AND month >= vicflag(1) AND vicflag(2) > 0 THEN j = 2: GOTO finis
+	IF control(i) >= vicflag(3) AND vicflag(3) > 0 THEN j = 3: GOTO finis
+	IF income(i) / (income(1) + income(2)) >= .01 * vicflag(4) AND vicflag(4) > 0 THEN j = 4: GOTO finis
+	IF vicflag(5) > 0 AND capcity(3 - i) = 0 AND capcity(i) > 0 THEN j = 5: GOTO finis
+
+	IF vicflag(6) > 0 THEN
+		IF i = 1 THEN
+			IF y = 0 THEN j = 7: GOTO finis
+			IF x / y > vicflag(6) THEN j = 6: GOTO finis
+		END IF
+		IF i = 2 THEN
+			IF x = 0 THEN j = 7: GOTO finis
+			IF y / x > vicflag(6) THEN j = 6: GOTO finis
+		END IF
+	END IF
+
+	CALL clrbot: COLOR 14
+	IF vicflag(3) > 0 AND control(i) >= .9 * vicflag(3) THEN
+		a$ = force$(i) + " side almost controls" + STR$(vicflag(3)) + " cities"
+		CALL image2(a$, 4)
+	END IF
+
+	IF vicflag(4) > 0 AND income(i) / (income(1) + income(2)) >= .009 * vicflag(4) THEN
+		a$ = force$(i) + " side close to" + STR$(vicflag(4)) + " % of total income"
+		CALL image2(a$, 4)
+	END IF
+
+	IF vicflag(6) > 0 AND x > 0 AND y > 0 THEN
+		IF (i = 1 AND x / y > .9 * vicflag(6)) OR (i = 2 AND y / x > .9 * vicflag(6)) THEN
+		a$ = force$(i) + "side close to" + STR$(vicflag(6)) + ":1 strength ratio"
+		CALL image2(a$, 4)
+		END IF
+	END IF
+	GOTO stale
+
+finis:
+	SELECT CASE j
+		CASE IS < 3
+		a$ = "TIME EXPIRED"
+		CASE 3
+		a$ = STR$(2.5 * vicflag(3)) + "% CITIES CONTROLLED"
+		CASE 4
+		a$ = STR$(vicflag(4)) + " % OF TOTAL INCOME"
+		CASE 5
+		a$ = "CAPITAL CAPTURED"
+		CASE 6
+		a$ = STR$(vicflag(6)) + ":1 ARMY STRENGTH RATIO"
+		CASE 7
+		a$ = "ENEMY ANNIHILATED"
+END SELECT
+	CLS
+	c = 1: IF i = 2 THEN c = 7
+	LINE (0, 0)-(639, 479), 4, BF
+	LINE (0, 40)-(550, 460), 0, BF
+	CALL usa
+	LINE (70, 140)-(485, 265), 0, BF
+	LINE (50, 120)-(465, 250), c, BF
+	LINE (50, 120)-(465, 250), 4, B
+	COLOR 14
+	t$ = force$(i) + " SIDE IS WINNING"
+	IF j = 2 THEN CALL center(10, "Confederates will win a technical victory") ELSE CALL center(10, t$)
+
+	COLOR 15
+	t$ = "END GAME VICTORY CONDITION" + STR$(j - 1) + " REACHED"
+	CALL center(12, t$)
+	CALL center(14, a$)
+
+	mtx$(0) = "End Game"
+	mtx$(1) = "Yes"
+	mtx$(2) = "No-Override"
+	size = 2: colour = 4
+	tlx = 27: tly = 18
+	hilite = 15
+	IF j = 7 THEN size = 1
+	CALL menu(0)
+
+	IF choose <> 1 AND j < 7 THEN
+play4ever:
+			vicflag(j) = vicflag(j) + 1
+			IF j = 5 THEN vicflag(j) = 0
+			CLS
+			CALL usa
+			EXIT SUB
+	END IF
+	mtx$(0) = "Options"
+	mtx$(1) = "Quit this Game"
+	mtx$(2) = "Play More"
+	IF player = 1 THEN mtx$(2) = "No - Press Onward to " + city$(capcity(3 - side))
+	size = 2: colour = 8
+	tlx = 27: tly = 18
+	IF j <> 7 THEN
+		CALL menu(0)
+		IF choose <> 1 GOTO play4ever
+	ELSE
+		victory(i) = victory(i) + 100
+	END IF
+
+	thrill = i
+	CALL usa: CALL report(100 + side)
+	IF j = 2 THEN FOR k = 1 TO 2: victory(k) = .7 * victory(k): NEXT k: CALL rwin: GOTO death
+
+	IF i = 1 THEN CALL capitol: COLOR 15: LOCATE 2, 27: t$ = "UNION VICTORY  VP's=" + STR$(victory(1)): PRINT t$: GOTO death
+	IF i = 2 THEN CALL rwin: COLOR 15: LOCATE 2, 27: t$ = "REBEL VICTORY  VP's=" + STR$(victory(2)): PRINT t$
+death:
+	COLOR 14: LOCATE 4, 40 - .5 * LEN(a$)
+	IF history > 0 THEN
+		CALL scribe(t$, 0)
+		CALL scribe(a$, 0)
+	END IF
+	PRINT a$: CALL maxx
+	EXIT SUB
+stale:
+    NEXT i
+END SUB
+SUB rwin
+LINE (2, 2)-(637, 239), 4, BF
+COLOR 15: LINE (2, 40)-(597, 239): LINE -(637, 239): LINE -(637, 199): LINE -(40, 2): LINE -(2, 2): LINE -(2, 40)
+COLOR 15: LINE (2, 199)-(2, 239): LINE -(40, 239): LINE -(637, 40): LINE -(637, 2): LINE -(597, 2): LINE -(2, 199)
+LINE (242, 95)-(395, 145), 4, BF
+PAINT (4, 20), 1, 15
+
+LINE (2, 239)-(637, 438), 2, BF
+GOSUB stars
+
+'                               landscape
+PSET (1, 240)
+DRAW "s14BR68C0E6U1E3R2E4R10F2R7F2R5E3R12F7R4F2E3R5E3R9F4"
+DRAW "C0R6F2R5F1R3F3L44F2L42E1H1L29E2R1BH5BL3BR5"
+PAINT (300, 230), 5, 0
+PSET (2, 330)
+DRAW "C0D18U1R32E4R26E2R27E5R20E2R1E2U1E2U2E4H4L5H2L9H1L5H3L4H2L5H1L3H2L12H4"
+DRAW "C0D1F4R5F2R3F2R4F5R5F3L13G1L8G2L24G1L30G1L18D21"
+DRAW "BE5": x = POINT(0): y = POINT(1) + 5: PAINT (x, y), 9, 0
+DRAW "BU12C11R21F1R2BR2BD6C11R9E1R9E1R6BH7C11R9E1R9BF5C11R9E1R1E1R10"
+LINE (1, 1)-(638, 440), 14, B
+LINE (2, 2)-(637, 439), 14, B
+
+'                               mansion
+x = 100: y = 240
+CIRCLE (x + 50, y + 40), 80, 0, , , .2
+PAINT (x + 50, y + 40), 6, 0
+LINE (x + 95, y - 14)-(x + 102, y + 8), 8, BF
+LINE (x + 100, y - 14)-(x + 102, y + 8), 7, BF
+LINE (x, y)-(x + 100, y + 36), 7, BF
+FOR i = 1 TO 6: LINE (x + 17 * i, y + 6)-(x + 17 * i + 4, y + 32), 0, BF: NEXT i
+LINE (x + 12, y + 18)-(x + 98, y + 22), 7, BF
+LINE (x + 50, y + 20)-(x + 57, y + 36), 8, BF
+LINE (x + 100, y + 36)-(x + 105, y + 39), 7
+LINE -(x + 5, y + 39), 7: LINE -(x, y + 38), 7
+
+LINE (x, y)-(x - 7, y - 7), 8: LINE -(x - 14, y + 5), 8
+LINE -(x - 14, y + 33), 8: LINE -(x, y + 36), 8: LINE -(x, y), 8
+COLOR 10: LINE (x - 5, y - 7)-(x + 95, y - 7): LINE -(x + 107, y + 7)
+LINE -(x + 7, y + 7): LINE -(x - 5, y - 7)
+PAINT (x, y - 3), 10
+PAINT (x - 5, y + 15), 8
+
+FOR i = 1 TO 6: LINE (x + 19 * i - 12, y + 7)-(x + 19 * i - 12 + 2, y + 40), 15, BF: NEXT i
+
+IF noise < 2 GOTO relee
+PLAY "MBMS T120"
+PLAY "O3 L16 g e L8 c c L16 c d e f L8 g g g e a a a. L16 g a8. g a b"
+PLAY "O4 L16 c d e4. c O3 g O4 c4. O3 g e g4. d e c4 P8"
+PLAY "L16 g e L8 c c L16 c d e f L8 g g g e a a a. L16 g a8. g a b"
+PLAY "O4 L16 c d e4. c O3 g O4 c4. O3 g e g4. d e c4."
+PLAY "L16 T150 g a b T120 O4 L8 c e d. c16 O3 a O4 c4 O3 a O4 d4."
+PLAY "O3 a O4 d4. O3 T150 L16 g a b T120 L8 O4 c e d. c16"
+PLAY "L8 O3 a b O4 c. O3 a16 g e O4 c. O3 e16 e d4 e c4. e d4. a"
+PLAY "L8 g e O4 c. e16 d c4 O3 e c4. e d4. a g e O4 e4. c16 d c4"
+
+GOTO relee
+
+stars:
+FOR i = 1 TO 8
+x = starx(i): y = stary(i)
+PSET (x, y), 0
+LINE (x + 2, y - 1)-(x + 8, y + 16), 15
+LINE -(x - 6, y + 2): LINE -(x - 20, y + 16)
+LINE -(x - 14, y - 1): LINE -(x - 30, y - 9)
+LINE -(x - 12, y - 9): LINE -(x - 6, y - 25)
+LINE -(x, y - 9): LINE -(x + 16, y - 9)
+LINE -(x + 2, y - 1): PAINT (x, y), 15
+NEXT i
+RETURN
+relee:
+END SUB

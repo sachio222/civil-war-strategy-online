@@ -1,0 +1,299 @@
+SUB armies
+CALL movefrom(index, target): IF target > 0 AND index > 0 GOTO tent
+	IF index = -1 THEN mflag = 1
+	GOTO dudd
+tent:
+tlx = 67: tly = 12
+
+CALL armystat(index)
+COLOR 11: LOCATE 11, 68: PRINT city$(target)
+size = 0
+mtx$(0) = "To"
+FOR i = 1 TO 6: IF matrix(target, i) > 0 THEN size = size + 1: mtx$(size) = city$(matrix(target, i)): array(size) = matrix(target, i)
+NEXT i
+CALL bubble(size)
+
+hilite = 10: colour = 3: CALL menu(2): CALL clrrite
+IF choose < 0 GOTO dudd
+IF month < 3 AND jancam = 0 AND cityp(array(choose)) <> side THEN COLOR 11: CALL clrbot: PRINT "No campaigns in January"; : CALL TICK(9): CALL clrbot: GOTO dudd
+
+CALL clrbot: PRINT "Army "; index; " "; armyname$(index); " is moving from "; city$(target); " to "; city$(array(choose));
+IF noise > 0 THEN SOUND 2200, .5: SOUND 2900, .7
+CALL icon(target, array(choose), 1)
+armymove(index) = array(choose): CALL TICK(turbo!): CALL clrbot
+CALL clrrite
+dudd:
+END SUB
+SUB armystat (index)
+LINE (530, 60)-(639, 150), 0, BF
+COLOR 15
+LOCATE 5, 68: PRINT armyname$(index)
+COLOR 9: IF index > 20 THEN COLOR 7
+LOCATE 6, 68: PRINT "Size:"; : CALL strong(index)
+LOCATE 7, 68: PRINT "Leader:"; TAB(75); armylead(index)
+LOCATE 8, 68: PRINT "Exper:"; TAB(75); armyexper(index)
+IF supply(index) < 2 THEN COLOR 12
+LOCATE 9, 68: PRINT "Supply:"; TAB(75); supply(index)
+END SUB
+SUB combine (who)
+	colour = 3: target = 0: hilite = 3
+	tlx = 67: tly = 2
+	CALL starfin(star, fin, who)
+	size = 0
+	FOR i = 1 TO 40
+		IF cityp(i) = who AND occupied(i) > 0 THEN
+			FOR j = star TO fin
+			IF armyloc(j) = i AND occupied(i) <> j AND armymove(j) = 0 THEN size = size + 1: mtx$(size) = city$(i): array(size) = i: EXIT FOR
+			NEXT j
+		END IF
+	NEXT i
+	
+	IF size = 0 THEN who = -1: EXIT SUB
+	CALL bubble(size)
+
+	IF who <> side THEN choose = 1 + INT(size * RND): GOTO join
+	mtx$(0) = "Join"
+		choose = 31: hilite = 11
+		CALL menu(9): CALL clrrite
+join:
+		IF choose < 1 GOTO nocity2
+		target = array(choose)
+		CALL clrbot: PRINT "Combining "; force$(who); " armies in "; city$(target); :  CALL TICK(turbo!)
+
+		armysize(0) = 0: armylead(0) = 0: armyexper(0) = 0: armyloc(0) = target
+		armyname$(0) = "": supply(0) = 0: armymove(0) = 0
+'...........................................................................
+		best = 0: x = 0: spin = 0
+		FOR j = star TO fin
+		IF armymove(j) <> 0 OR armyloc(j) <> target OR armysize(j) = 0 GOTO dork1
+		IF armysize(0) + armysize(j) > 1250 THEN CALL clrbot: PRINT "Cannot combine "; armyname$(j); "... TOO LARGE"; : CALL TICK(turbo!): GOTO dork1
+
+		IF armylead(j) > x THEN
+			x = armylead(j)
+			armyname$(0) = armyname$(j)
+			armylead(0) = armylead(j)
+			best = j
+		END IF
+
+		armysize(0) = armysize(0) + armysize(j)
+		IF armysize(0) < 1 GOTO dork1
+		pct! = (armysize(j) / armysize(0))
+		spin = spin + 1
+		armyexper(0) = (1 - pct!) * armyexper(0) + pct! * armyexper(j)
+		CALL clrbot: PRINT armyname$(j); " is combining his "; : CALL strong(j): PRINT " forces"; : CALL TICK(turbo!)
+		supply(0) = supply(0) + supply(j)
+		IF supply(0) > 10 THEN supply(0) = 10
+		armysize(j) = 0: armyloc(j) = 0: armyexper(j) = 0: armymove(j) = 0
+		lname$(j) = armyname$(j)
+		armylead(j) = 0: supply(j) = 0: armyname$(j) = ""
+dork1:
+		NEXT j
+
+		CALL clrbot
+		IF who <> side AND spin = 0 THEN EXIT SUB
+		IF spin = 0 THEN
+				PRINT "No valid armies to combine at this time in "; city$(target);
+				TICK turbo!
+				EXIT SUB
+		END IF
+		armysize(best) = armysize(0): armylead(best) = armylead(0)
+		armyexper(best) = armyexper(0): supply(best) = supply(0)
+		armyloc(best) = target
+		armyname$(best) = armyname$(0)
+		lname$(best) = ""
+		IF spin > 1 THEN
+		PRINT "New army "; best; " of "; : CALL strong(best): PRINT " is commanded by "; armyname$(best);
+		armymove(best) = -1
+		ELSE
+		PRINT "Only 1 eligible army -- cannot combine at this time";
+		END IF
+		IF who = side THEN CALL TICK(turbo!)
+		IF noise > 0 THEN SOUND 4000, .7
+	       
+		CALL showcity
+		CALL placearmy(best)
+		CALL icon(target, 0, 6)
+		occupied(target) = best
+		CALL stax(who)
+nocity2:
+END SUB
+SUB cutoff (who, target, a)
+a = 0
+FOR j = 1 TO 6
+y = matrix(target, j)
+IF y > 0 AND cityp(y) = who THEN a = a + 1
+NEXT j
+END SUB
+SUB movefrom (index, target)
+	colour = 3: tlx = 67: tly = 5: index = 0: size = 0: target = 0
+	who = side: CALL starfin(star, fin, who)
+	FOR i = star TO fin
+	IF armyloc(i) > 0 AND armymove(i) = 0 THEN size = size + 1: mtx$(size) = city$(armyloc(i)): array(size) = armyloc(i)
+	NEXT i
+	IF size = 0 THEN index = -1: GOTO notarg
+	mtx$(0) = "From"
+	CALL bubble(size)
+movopt:
+	tlx = 67: tly = 5
+		hilite = 15: CALL menu(1): CALL clrrite
+		IF choose < 0 THEN target = 0: GOTO notarg
+		target = array(choose)
+
+		size = 0
+		FOR i = star TO fin
+		IF armyloc(i) = target AND armymove(i) = 0 THEN index = i: size = size + 1: mtx$(size) = "Army" + STR$(i): array(size) = i
+		NEXT i
+		IF size = 1 GOTO notarg
+		mtx$(0) = "Which"
+		CALL bubble(size)
+		tlx = 67: tly = 15: CALL menu(4): CALL clrrite
+		IF choose < 0 THEN index = 0: GOTO notarg
+		index = array(choose)
+notarg:
+END SUB
+SUB newarmy (who, empty, target)
+	supply(empty) = 3 + 5 * RND: IF who = 1 THEN supply(empty) = supply(empty) + 2
+	armyexper(empty) = 1: IF who = 2 THEN armyexper(empty) = 2
+	armylead(empty) = rating(empty)
+	armyname$(empty) = lname$(empty): lname$(empty) = ""
+	COLOR 12: CALL clrbot: PRINT "Placing NEW army "; empty; armyname$(empty); " in "; city$(target);
+
+	x = 70: IF realism > 0 THEN x = 3 * cityv(target) + 33
+	CALL cutoff(who, target, a): IF a < 1 THEN x = x \ 3
+	occupied(target) = empty: armysize(empty) = x
+	PRINT " Size = "; : CALL strong(empty)
+	cash(who) = cash(who) - 100: IF noise > 0 THEN SOUND 2222, .5
+	armyloc(empty) = target: CALL placearmy(empty)
+	CALL TICK(turbo! - .5)
+	armymove(empty) = -1
+END SUB
+SUB placearmy (which)
+who = 1: IF which > 20 THEN who = 2
+x = cityx(armyloc(which)) - 12
+y = cityy(armyloc(which)) - 11
+CALL armyxy(x, y, who)
+IF supply(which) < 1 THEN
+	x = x - 3: y = y + 4
+	PSET (x, y), 13: DRAW "C11S8"
+	DRAW font$(19)
+	DRAW "S4"
+END IF
+END SUB
+SUB armyxy (x, y, z)
+LINE (x - 5, y - 3)-(x + 10, y + 8), 0, BF
+SELECT CASE z
+	CASE 1
+	LINE (x - 7, y - 5)-(x + 7, y + 5), 4, BF
+	LINE (x - 7, y - 5)-(x - 1, y), 1, BF
+	LINE (x, y - 2)-(x + 7, y - 1), 7, B
+	LINE (x - 7, y + 2)-(x + 7, y + 3), 7, B
+	LINE (x - 8, y - 6)-(x + 8, y + 6), 0, B
+	CASE 2
+	LINE (x - 7, y - 5)-(x + 7, y + 5), 4, BF
+	LINE (x - 8, y - 6)-(x + 8, y + 6), 0, B
+	LINE (x - 7, y - 4)-(x + 6, y + 5), 9
+	LINE (x - 7, y + 4)-(x + 6, y - 5), 9
+	LINE (x - 7, y - 5)-(x + 7, y + 5), 9
+	LINE (x - 7, y + 5)-(x + 7, y - 5), 9
+	CASE ELSE
+END SELECT
+END SUB
+SUB cancel (side)
+CALL starfin(star, fin, (side))
+counter:
+CALL clrrite
+	size = 0
+	FOR j = star TO fin
+	a$ = armyname$(j): IF LEN(a$) > 10 THEN x = INSTR(a$, " "): a$ = RIGHT$(a$, LEN(a$) - x)
+	IF armyloc(j) > 0 AND armymove(j) > 0 THEN size = size + 1: mtx$(size) = a$: array(size) = armyloc(j)
+	NEXT j
+	CALL bubble(size)
+	tlx = 67: tly = 2: wtype = 2
+	mtx$(0) = "Cancel"
+	IF size < 1 THEN CALL clrbot: COLOR 11: PRINT "No units have orders to cancel"; : EXIT SUB
+	CALL menu(1)
+	SELECT CASE choose
+	 CASE 1 TO size
+		target = array(choose)
+	       
+		FOR i = star TO fin
+		IF armyloc(i) = target THEN x = INSTR(armyname$(i), mtx$(choose)): IF x > 0 AND armymove(i) > 0 THEN index = i
+		NEXT i
+
+		CALL clrbot: COLOR 11: PRINT armyname$(index); " has cancelled move to "; city$(armymove(index)); : CALL TICK(turbo + 1)
+		CALL icon(armyloc(index), armymove(index), 4)
+		armymove(index) = 0: IF noise > 0 THEN SOUND 2999, .5
+		CALL stax(side)
+	 CASE ELSE
+		GOTO finix
+	END SELECT
+finix:
+	CALL clrrite
+END SUB
+SUB relieve (who)
+colour = 3: target = 0: hilite = 3
+tlx = 67: tly = 2
+CALL starfin(star, fin, who)
+size = 0
+FOR i = star TO fin
+IF armysize(i) > 0 AND armyloc(i) > 0 AND armymove(i) = 0 THEN
+	size = size + 1
+	mtx$(size) = armyname$(i)
+	IF LEN(mtx$(size)) > 11 THEN mtx$(size) = LEFT$(mtx$(size), 11)
+	array(size) = i
+END IF
+NEXT i
+
+IF size = 0 THEN EXIT SUB
+CALL bubble(size)
+mtx$(0) = "Relieve"
+choose = 31: hilite = 11
+CALL menu(6): CALL clrrite
+
+IF choose < 1 THEN EXIT SUB
+index = array(choose)
+CALL icon(armyloc(index), 0, 9)
+
+t$ = armyname$(index)
+lname$(index) = t$
+
+size = 0
+FOR i = star TO fin
+IF lname$(i) <> "" THEN
+	size = size + 1
+	mtx$(size) = lname$(i)
+	IF LEN(mtx$(size)) > 11 THEN mtx$(size) = LEFT$(mtx$(size), 11)
+	array(size) = i
+END IF
+NEXT i
+CALL bubble(size)
+
+have2:
+mtx$(0) = "New Leader"
+tlx = 67: tly = 2
+CALL menu(0): CALL clrrite
+IF choose < 1 GOTO have2
+armymove(index) = -1
+armylead(index) = rating(array(choose))
+IF armylead(index) > 0 THEN armylead(index) = armylead(index) - 1
+IF armyexper(index) > 0 THEN armyexper(index) = armyexper(index) - 1
+COLOR 15: CALL clrbot: PRINT lname$(array(choose)); " has replaced "; t$; " in "; city$(armyloc(index)); : TICK 9
+armyname$(index) = lname$(array(choose))
+lname$(array(choose)) = ""
+CALL icon(armyloc(index), 0, 8)
+CALL clrbot
+END SUB
+SUB resupply (index)
+		who = 1: IF index > 20 THEN who = 2
+		IF realism > 0 THEN
+			CALL cutoff(who, armyloc(index), a)
+			IF a < 1 THEN EXIT SUB
+		END IF
+		IF armysize(index) > 0 THEN x = cash(who) / armysize(index) * 10
+		y = x + supply(index): IF y > 5 THEN x = 5 - supply(index)
+		IF x < 1 THEN CALL clrbot: PRINT "Not enough funds in the Treasury to supply "; armyname$(index); : GOTO nocash
+		supply(index) = supply(index) + x: cash(who) = cash(who) - .1 * x * armysize(index)
+		CALL clrbot: PRINT armyname$(index); " has received supplies "; : IF noise > 0 THEN SOUND 4500, .5
+nocash:
+		CALL TICK(turbo!): IF cash(who) < 0 THEN cash(who) = 0
+END SUB

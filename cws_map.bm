@@ -1,0 +1,809 @@
+SUB flashcity (which)
+FOR c = 1 TO 15 STEP 2
+CIRCLE (cityx(which), cityy(which)), 4, 0
+CIRCLE (cityx(which), cityy(which)), 3, c
+PAINT (cityx(which), cityy(which)), c, c
+CALL TICK(.1)
+NEXT c
+c = 9: IF cityp(which) = 2 THEN c = 7
+IF cityp(which) = 0 THEN c = 12
+CIRCLE (cityx(which), cityy(which)), 4, 0
+CIRCLE (cityx(which), cityy(which)), 3, c
+PAINT (cityx(which), cityy(which)), c, c
+END SUB
+
+SUB icon (from, dest, kind)
+IF from < 1 OR from > 40 GOTO noshow
+IF dest < 0 GOTO noshow
+IF from = 999 GOTO noshow
+x = cityx(from) - 12: y = cityy(from) - 11
+x1 = cityx(dest): y1 = cityy(dest)
+SELECT CASE kind
+	CASE 1
+	LINE (x, y)-(x1, y1), 15, , &HF0F0
+       
+	CASE 2
+	FOR i = 6 TO 8
+	LINE (x - i, y - i + 3)-(x + i, y + i - 3), 14, B
+	NEXT i
+	CALL TICK(.1)
+       
+	CASE 3
+	x = cityx(from): y = cityy(from)
+	CALL snapshot(x, y, 0)
+	FOR j = 1 TO 3
+	FOR i = 4 TO 10 STEP 1
+	CIRCLE (x, y), i, 4
+	PAINT (x, y), 14, 4
+	IF noise > 0 THEN SOUND 37 + 50 * RND, .03
+	NEXT i
+	CALL TICK(.1)
+	CALL snapshot(x, y, 1)
+	NEXT j
+       
+	CASE 4
+	IF occupied(from) = 0 THEN LINE (x - 8, y - 6)-(x + 10, y + 8), 2, BF
+	IF x1 + y1 > 0 THEN LINE (x, y)-(x1, y1), 2, , &HF0F0
+	IF from = 27 OR from = 28 THEN CALL touchup
+
+	CASE 5
+	IF x1 + y1 > 0 THEN LINE (x, y)-(x1, y1), 2, , &HF0F0
+
+	CASE 6
+	x = cityx(from): y = cityy(from)
+	CALL snapshot(x, y, 0)
+	LINE (x - 9, y - 9)-(x + 9, y + 9), 15, B
+	LINE (x - 10, y - 10)-(x + 10, y + 10), 15, B
+	IF noise > 0 THEN SOUND 3999, .3
+	CALL TICK(turbo! - .5)
+	CALL snapshot(x, y, 1)
+	CASE 7          ' draw white box
+	x = cityx(from) - 12: y = cityy(from) - 11
+	GET (x - 8, y - 8)-(x + 8, y + 8), image
+	LINE (x - 7, y - 7)-(x + 7, y + 7), 15, B
+	LINE (x - 8, y - 6)-(x + 8, y + 6), 15, B
+	     CASE 8     ' replace old image
+	x = cityx(from) - 12: y = cityy(from) - 11
+	IF x > 0 THEN PUT (x - 8, y - 8), image, PSET
+       
+	CASE 9          ' draw arrow pointer
+	x = cityx(from) - 12: y = cityy(from) - 11
+	GET (x - 8, y - 8)-(x + 10, y + 7), image
+	x = x + 7: y = y + 5
+	LINE (x + 2, y)-(x + 2, y - 8), 12
+	LINE -(x, y - 6), 12
+	LINE -(x - 5, y - 11), 12
+	LINE -(x - 10, y - 6), 12
+	LINE -(x - 6, y - 2), 12
+	LINE -(x - 10, y), 12
+	LINE -(x + 1, y), 12
+	PAINT (x - 2, y - 1), 15, 12
+
+	CASE 11
+	LINE (x + 12, y + 11)-(x1, y1), 0, , &H1111
+
+	CASE ELSE
+END SELECT
+noshow:
+END SUB
+SUB showcity
+FOR i = 1 TO 40
+c = 9: IF cityp(i) = 2 THEN c = 7
+IF cityp(i) = 0 THEN c = 12
+x = cityx(i): y = cityy(i)
+IF i = capcity(1) OR i = capcity(2) THEN
+	PUT (x - 6, y - 6), Ncap, PSET
+	LINE (x + 9, y - 4)-(x + 15, y + 4), 0, BF
+	LINE (x + 8, y - 5)-(x + 13, y + 2), 3, BF
+	PSET (x + 8, y - 4)
+	IF fort(i) = 1 THEN DRAW "BR2C0e1D6BL1R2"
+	IF fort(i) = 2 THEN DRAW "C0e1R1F1D1G3R3"
+ELSE
+	IF fort(i) = 1 THEN LINE (x - 5, y - 5)-(x + 5, y + 5), 0, B
+	IF fort(i) > 1 THEN LINE (x - 5, y - 5)-(x + 5, y + 5), 0, BF
+	CIRCLE (cityx(i), cityy(i)), 4, 0
+	CIRCLE (cityx(i), cityy(i)), 3, c
+	PAINT (cityx(i), cityy(i)), c, c
+END IF
+IF graf = 0 GOTO nocon
+	FOR j = 1 TO 6: IF matrix(i, j) > 0 THEN CALL icon(i, matrix(i, j), 11)
+	NEXT j
+nocon:
+NEXT i
+END SUB
+SUB snapshot (x, y, flag)
+IF flag = 0 THEN GET (x - 10, y - 10)-(x + 10, y + 10), image
+IF flag = 1 THEN PUT (x - 10, y - 10), image, PSET
+END SUB
+SUB tupdate
+flag = 0
+IF player = 1 THEN
+	CALL smarts
+ELSE
+	FOR i = 1 TO 40
+	IF armyloc(i) > 0 AND armymove(i) > 0 THEN CALL icon(armyloc(i), armymove(i), 1)
+	NEXT i
+END IF
+COLOR 14: LOCATE 1, 1: PRINT SPACE$(80);
+LOCATE 1, 20: PRINT "Update for "; month$(month); ","; year
+CALL clrbot: PRINT "press any key for "; month$(month); ","; year; " events";
+DO WHILE INKEY$ = "": LOOP
+GOSUB upbox
+'==========================================================================
+'                       Assign Time of Action
+'==========================================================================
+FOR i = 1 TO 2: IF rr(i) > 0 THEN CALL railroad(i): LINE (5, 17)-(100, 63), 3, BF: LINE (5, 17)-(100, 63), 0, B: CALL engine
+NEXT i
+
+FOR i = 1 TO 40
+brray(i) = 999
+IF armymove(i) < 0 THEN armymove(i) = 0
+IF armyloc(i) > 0 AND armymove(i) > 0 THEN brray(i) = INT(4 + 4 * RND) * 100 + i
+IF supply(i) < 1 AND armymove(i) > 0 THEN brray(i) = 900 + i
+SELECT CASE armysize(i)         'bigger armies move slower
+	CASE IS > 400
+		IF brray(i) < 900 THEN brray(i) = brray(i) + 100: x = 2
+	CASE IS > 800
+		IF brray(i) < 800 THEN brray(i) = brray(i) + 200: x = 3
+	CASE IS > 1000
+		IF brray(i) < 700 THEN brray(i) = brray(i) + 300: x = 4
+	CASE ELSE
+		x = 1
+END SELECT
+IF brray(i) <> 999 AND armylead(i) > 10 * RND THEN
+		brray(i) = brray(i) - 100 * (armylead(i) \ 2)
+		IF brray(i) < 100 THEN brray(i) = 100 + i
+END IF
+NEXT i
+
+CALL bub2(40)
+'==========================================================================
+'                       Begin Main Loop
+'==========================================================================
+FOR j = 1 TO 40
+flag = 0
+IF brray(j) = 999 GOTO allthru
+active = INT(brray(j) / 100): active = brray(j) - 100 * active: s = 1: IF active > 20 THEN s = 2
+IF armymove(active) < 1 GOTO digin
+COLOR 11: CALL clrbot: PRINT armyname$(active); " is moving to "; city$(armymove(active));
+
+supply(active) = supply(active) - 1: IF supply(active) < 0 THEN supply(active) = 0: CALL TICK(turbo!): CALL clrbot: PRINT armyname$(active); " is out of supplies !";
+
+CALL placearmy(active)
+CALL icon(armyloc(active), armymove(active), 5)
+
+CALL animate(active, 0)
+'==========================================================================
+target = armymove(active)
+IF occupied(target) = 0 GOTO easy
+IF (s = 1 AND occupied(target) < 21) OR (s = 2 AND occupied(target) > 20) GOTO friend ELSE GOTO enemy
+'==========================================================================
+'                         Join Forces
+'==========================================================================
+friend:
+COLOR 11: CALL clrbot: PRINT armyname$(active); " and "; armyname$(occupied(target)); " meet in "; city$(target); : CALL TICK(turbo!)
+CALL icon(armymove(active), 0, 6)
+CALL clrbot
+GOTO easy
+'==========================================================================
+'                       Attack
+'==========================================================================
+enemy:
+CALL icon(target, 0, 3)
+defend = occupied(target)
+
+COLOR 11: CALL clrbot: PRINT armyname$(active); " attacks "; armyname$(defend); " in "; city$(armyloc(defend)); : CALL TICK(turbo! - 1)
+IF armysize(defend) > 0 THEN CALL battle(active, defend, win, lose): flag = 1: IF graf > 0 THEN GOSUB upbox
+IF armyexper(win) < 10 THEN armyexper(win) = armyexper(win) + 1
+
+IF armysize(lose) < 2 THEN
+	CALL clrbot
+	a$ = armyname$(lose) + "'s army is crushed in " + city$(armyloc(defend))
+	CALL scribe(a$, 2)
+	index = lose: GOTO crushed
+END IF
+
+CALL clrrite
+'==========================================================================
+'                       Attacker Loses
+'==========================================================================
+IF win = active GOTO kickbutt
+armymove(active) = armyloc(active)
+armyloc(active) = target
+COLOR 11: CALL clrbot: PRINT armyname$(active); " withdrew to "; city$(armymove(active));
+
+CALL placearmy(armyloc(active))
+CALL animate(active, 1)
+
+armyloc(active) = armymove(active)
+CALL placearmy(armyloc(active))
+CALL placearmy(active)
+occupied(armyloc(active)) = active
+armymove(active) = -2
+	      
+IF 11 * RND > armylead(defend) THEN CALL icon(armyloc(defend), armymove(defend), 4): IF armymove(defend) > 0 THEN armymove(defend) = -2
+
+CALL TICK(turbo!): GOTO digin
+'==========================================================================
+'                       Defender Retreats
+'==========================================================================
+kickbutt:
+	CALL icon(armyloc(active), target, 4)
+	IF armymove(defend) > 0 THEN CALL icon(target, armymove(defend), 4)
+
+	CALL retreat(defend, flee): IF flee > 0 THEN move2 = flee: GOTO outta
+
+	best = 0: flee = 0
+	FOR i = 1 TO 6
+	x = matrix(target, i)
+	IF x > 0 AND (cityp(x) = 3 - s) AND cityv(x) > best THEN
+		IF best = 0 THEN
+			flee = i: best = cityv(x)
+		ELSE
+			IF occupied(x) = 0 THEN flee = i: best = cityv(x)
+		END IF
+	END IF
+	NEXT i
+	IF flee = 0 GOTO deadmeat
+	move2 = matrix(target, flee)
+outta:
+	CALL placearmy(defend)                  ' in old city
+
+	armymove(defend) = move2
+	CALL animate(defend, 0)                 ' animate retreat
+       
+	armyloc(defend) = move2
+	occupied(move2) = defend
+	CALL clrbot
+	PRINT armyname$(defend) + " is withdrawing to " + city$(move2);
+
+	CALL placearmy(defend)                  ' in new city
+       
+	CALL icon(target, 0, 6)
+	armymove(defend) = -2
+	GOTO holdon
+
+deadmeat:
+	index = defend
+	a$ = armyname$(index) + " surrenders to " + armyname$(active) + " in " + city$(armyloc(index))
+	CALL scribe(a$, 2)
+crushed:
+	IF graf > 2 THEN CALL surrender(index): COLOR 14: LOCATE 3, 68: PRINT armyname$(index): LOCATE 4, 68: PRINT "surrenders !"
+	x = 1: IF index > 20 THEN x = 2
+	IF noise > 1 AND x <> side THEN PLAY "MFMST220o3e4g8g2.g8g8g8o4c2"
+	IF armymove(index) > 0 THEN CALL icon(armyloc(index), armymove(index), 4)
+	victory(3 - s) = victory(3 - s) + 25
+	armyloc(index) = 0: lname$(index) = "": armyname$(index) = ""
+	armysize(index) = 0: armylead(index) = 0
+	armyexper(index) = 0: armymove(index) = 0: supply(index) = 0
+	supply(active) = supply(active) + supply(index): supply(index) = 0
+	IF supply(active) > 10 THEN supply(active) = 10
+	CALL TICK(9): CALL clrrite
+	IF armyloc(active) = 0 GOTO digin
+'---------------------------------------------------------------------------
+'                       check for more defenders !
+'---------------------------------------------------------------------------
+holdon:
+	CALL occupy(target): IF occupied(target) = 0 GOTO easy
+	COLOR 11: CALL clrbot: PRINT "There are still defenders in "; city$(target); : CALL TICK(99)
+	GOTO enemy
+'==========================================================================
+'                       Move Into New City
+'==========================================================================
+easy:
+CALL icon(armyloc(active), target, 4)
+armyloc(active) = target: armymove(active) = -2
+CALL occupy(armyloc(active))
+CALL placearmy(active)
+'---------------------------------------------------------------------------
+'                            City Capture
+'---------------------------------------------------------------------------
+	IF cityp(armyloc(active)) = s GOTO horde
+	c = armyloc(active)
+	IF player = 1 AND s = side AND fort(c) > 0 AND flag = 0 THEN
+		tlx = 67: tly = 15
+		hilite = 15: colour = 3
+		mtx$(0) = "Raze ?"
+		mtx$(1) = "No"
+		mtx$(2) = "Yes"
+		size = 2
+		CALL menu(0)
+		CALL clrrite
+		IF choose = 2 GOTO smoke
+	END IF
+	IF player = 1 AND s <> side AND fort(c) > 0 AND flag = 0 THEN
+		IF realism > 0 AND cityy(c) > 150 THEN
+smoke:
+			fort(c) = 0
+			x = cityx(c)
+			y = cityy(c)
+			LINE (x - 5, y - 5)-(x + 5, y + 5), 2, BF
+			CALL showcity
+			CALL clrbot
+			PRINT armyname$(active); " has destroyed the forts at "; city$(c);
+			TICK 3
+		END IF
+	END IF
+	CALL capture(active, c, s, flag)
+horde:
+IF supply(active) < 10 THEN supply(active) = supply(active) + 1: IF RND > .8 GOTO horde
+digin:
+NEXT j
+GOTO allthru
+
+upbox:
+LINE (450, 318)-(526, 420), 1, BF
+LINE (527, 315)-(527, 439), 10
+COLOR 14: LOCATE 23, 50: PRINT "+-----------+"
+LOCATE 24, 50: PRINT "| U P D A T E |"
+LOCATE 25, 50: PRINT "+-----------+"
+RETURN
+
+allthru:
+IF navysize(commerce) < 1 THEN commerce = 0
+IF commerce > 0 THEN
+	CALL clrbot
+	IF RND < .8 + .02 * navysize(commerce) THEN
+		raider = .05 * navysize(commerce) * (1 + RND) * (income(3 - commerce))
+		IF raider < 1 THEN raider = 1
+		IF raider / income(3 - commerce) > .3 THEN raider = .3 * income(3 - commerce)
+		COLOR 15: PRINT force$(commerce); " raiders have sunk $"; raider; " of "; force$(3 - commerce); " commerce";
+		a = 1: IF LEFT$(fleet$(commerce), 1) = "I" THEN a = 2
+		PSET (500, 465), 0: CALL shipicon(commerce, a)
+		IF noise > 0 THEN PLAY "t210l8o4co3bo4l4co3ccL8gfego4co3bo4c"
+		IF commerce = side THEN grudge = 1
+		TICK 9
+	ELSE
+		raider = 0
+		CALL barnacle(commerce)
+		COLOR 15: PRINT force$(commerce); " raiders have lost a ship ("; navysize(commerce); " remain)";
+		IF noise > 0 THEN SOUND 590, .5: SOUND 999, .5: SOUND 1999, .5
+		IF navyloc(commerce) > 0 THEN
+			TICK 9
+			GOTO allthru
+		ELSE
+			commerce = 0
+			LINE (447, 291)-(525, 335), 1, BF
+			FOR k = 1 TO 5: CIRCLE (480, 315), 4 * k, 11: NEXT k
+			TICK 9
+			LINE (447, 291)-(525, 335), 1, BF
+		END IF
+	END IF
+END IF
+
+CALL touchup: CALL ships: CALL iterate
+
+CALL clrbot
+LINE (390, 350)-(520, 400), 1, BF
+COLOR 13: LOCATE 24, 51: PRINT " "; UCASE$(LEFT$(month$(month), 3)); ","; year
+victory(1) = .8 * victory(1) + .3 * (income(1) + control(1))
+IF control(1) > 29 THEN victory(1) = victory(1) + 50: IF control(1) > 34 THEN victory(1) = victory(1) + 100
+IF side = 2 AND control(1) < 11 THEN aggress! = aggress! + .7
+
+IF victory(1) < 1 THEN victory(1) = 0
+victory(2) = .8 * victory(2) + .3 * (income(2) + control(2))
+IF control(2) > 29 THEN victory(2) = victory(2) + 50: IF control(2) > 34 THEN victory(2) = victory(1) + 100
+IF side = 1 AND control(2) < 11 THEN aggress! = aggress! + .7
+IF player = 2 THEN CALL clrbot: COLOR 14: PRINT "press a key"; : DO WHILE INKEY$ = "": LOOP
+END SUB
+SUB image2 (a$, s)
+DIM g2(1 TO 8000)
+mtx$(1) = a$
+tlx = 32 - LEN(a$) \ 2
+tly = 10: size = 1
+CALL mxw(wide)
+IF wide > 59 THEN wide = 59: a$ = LEFT$(a$, 59)
+x = 8 * (tlx + wide)
+y = 16 * (tly + 1)
+	GET (8 * tlx - 4, 16 * tly - 3)-(8 * (tlx + wide + 1) + 15, 16 * (tly + 3) + 7), g2
+	VIEW (8 * tlx - 4, 16 * tly - 3)-(8 * (tlx + wide + 1) + 7, 16 * (tly + 3) + 4)
+	CLS 1
+	VIEW
+	LINE (8 * tlx, 16 * tly - 1)-(8 * (tlx + wide + 1) + 15, 16 * (tly + 3) + 7), 0, BF
+	LINE (8 * tlx - 4, 16 * tly - 3)-(8 * (tlx + wide + 1) + 7, 16 * (tly + 3)), s, BF
+	LINE (8 * tlx - 4, 16 * tly - 3)-(8 * (tlx + wide + 1) + 7, 16 * (tly + 3)), 15, B
+	COLOR 14
+	LOCATE tly + 2, tlx + 2: PRINT a$
+	CALL TICK(9)
+	PUT (8 * tlx - 4, 16 * tly - 3), g2, PSET
+END SUB
+SUB maptext
+FOR k = 1 TO 40
+	FOR j = 1 TO LEN(city$(k))
+	a = cityx(k) + 6 * (j - 4) - 3
+	x = ASC(MID$(UCASE$(city$(k)), j, 1)) - 64
+	IF a > 527 GOTO nextc
+	PSET (a, cityy(k) + 12), 10
+	
+	IF matrix(k, 7) < 90 THEN
+		IF bw = 0 THEN DRAW "S4C0" ELSE DRAW "S4C7"
+	ELSE
+		DRAW "C10"
+	END IF
+	IF x > 0 AND x < 27 THEN DRAW font$(x)
+	NEXT j
+nextc:
+NEXT k
+END SUB
+SUB touchup
+
+LINE (500, 170)-(490, 165), 10 'Norfolk Coast
+LINE -(495, 160), 10
+LINE -(490, 155), 10
+LINE -(485, 150), 10
+
+' PAINT (502, 160), 1, 10
+
+LINE (145, 375)-(145, 405), 10   'Mobile border
+
+LINE (291, 111)-(301, 101), 1
+LINE -(316, 96), 1
+LINE -(331, 76), 1
+LINE -(345, 51), 1
+LINE -(351, 30), 1
+LINE -(370, 35), 1
+
+LINE (381, 81)-(431, 66), 1  'Potomac River
+LINE -(456, 81), 1
+LINE -(471, 111), 1
+
+LINE (115, 165)-(105, 170), 1  'Paducah
+LINE -(105, 190), 1
+LINE (106, 170)-(91, 140), 1   'Missouri R
+
+LINE (105, 190)-(150, 190), 10
+LINE (120, 160)-(130, 200), 1  'Tenn River
+
+LINE (60, 295)-(65, 325), 1 'Vicksburg
+LINE -(65, 335), 1
+
+
+LINE (195, 125)-(170, 130), 1
+LINE -(165, 135), 1
+
+LINE (50, 375)-(60, 395), 1
+
+LINE (60, 395)-(105, 405), 1
+LINE -(110, 420), 1
+
+LINE (291, 265)-(350, 340), 1   'Savannah R.
+
+LINE (1, 80)-(15, 77), 1    'Missouri River
+LINE -(25, 95), 1
+LINE -(50, 98), 1
+LINE -(75, 96), 1
+
+LINE (71, 90)-(61, 95), 1
+LINE -(56, 85), 1
+
+LINE (110, 398)-(105, 398), 10
+LINE -(90, 396), 10
+LINE -(90, 400), 10
+LINE -(105, 402), 10
+LINE -(120, 415), 10
+LINE -(115, 420), 10
+' PAINT (108, 400), 1, 10
+
+LINE (66, 375)-(52, 375), 10
+END SUB
+SUB usa
+SCREEN 12
+LINE (1, 16)-(527, 440), 10, B
+PAINT (200, 200), 2, 10
+COLOR 10
+'==========================  Mountains =================================
+IF _FILEEXISTS("mtn.vga") THEN
+	PUT (380, 30), mtn, PSET
+	PUT (270, 200), mtn, PSET
+	PUT (310, 160), mtn, PSET
+	PUT (350, 120), mtn, PSET
+	PUT (200, 185), mtn, PSET
+	PUT (250, 130), mtn, PSET
+	PUT (320, 80), mtn, PSET
+	PUT (30, 150), mtn, PSET
+	LINE (30, 150)-(70, 190), 2, BF
+END IF
+'===========================  Kentucky =================================
+LINE (105, 190)-(150, 190)
+LINE -(150, 185)
+LINE -(290, 185)
+LINE (276, 185)-(301, 175)
+LINE -(305, 160)
+LINE -(310, 155)
+LINE -(305, 145)
+LINE -(300, 125)
+LINE -(290, 110)
+
+LINE -(275, 95), 1
+LINE -(270, 95), 1
+LINE -(260, 100), 1
+LINE -(250, 100), 1
+LINE -(240, 90), 1
+LINE -(235, 85), 1
+LINE -(230, 85), 1
+LINE -(220, 90), 1
+LINE -(220, 100), 1
+LINE -(210, 105), 1
+LINE -(205, 115), 1
+LINE -(195, 125), 1
+LINE -(170, 130), 1
+LINE -(165, 135), 1
+LINE -(130, 140), 1
+LINE -(120, 150), 1
+LINE -(120, 160), 1
+LINE -(115, 165), 1
+LINE -(105, 170), 1
+LINE -(105, 190), 1
+'===========================  Tennessee =================================
+LINE (290, 185)-(320, 185)
+LINE -(320, 185)
+LINE -(315, 195)
+LINE -(302, 210)
+LINE -(290, 215)
+LINE -(275, 230)
+LINE -(260, 241)
+LINE -(260, 241)
+LINE -(70, 241)
+
+LINE (105, 190)-(95, 200), 1
+LINE -(80, 220), 1
+LINE -(70, 241), 1
+'===========================  Mississippi =================================
+LINE (143, 241)-(145, 405)
+LINE -(135, 400)
+LINE -(125, 400)
+LINE -(115, 405)
+LINE -(110, 400)
+LINE -(110, 390)
+LINE -(115, 380)
+LINE -(115, 375)
+LINE -(50, 375)
+LINE (115, 375)-(60, 375)
+
+LINE (70, 241)-(65, 280), 1
+LINE -(60, 295), 1
+LINE -(65, 325), 1
+LINE -(65, 335), 1
+LINE -(50, 375), 1
+'===========================  Alabama =================================
+LINE (215, 241)-(232, 375)
+LINE (176, 395)-(181, 410)
+LINE -(166, 415)
+LINE -(161, 400)
+LINE -(156, 405)
+LINE -(146, 405)
+LINE (176, 395)-(176, 385)
+LINE -(231, 385)
+'===========================  Georgia & Florida ============================
+LINE (261, 241)-(296, 241)
+LINE -(291, 265)
+LINE -(350, 340)
+LINE -(336, 390)
+LINE -(366, 440)
+LINE (336, 385)-(325, 385)   'Fla /Ga Border
+LINE -(320, 388)
+LINE -(245, 388)
+LINE -(230, 385)
+LINE (180, 410)-(195, 410)
+LINE -(215, 415)
+LINE -(225, 425)
+LINE -(255, 420)
+LINE -(265, 420)
+LINE -(270, 425)
+LINE -(275, 440)
+LINE (347, 409)-(343, 409)
+LINE -(343, 431)
+LINE -(346, 431)
+LINE -(346, 412)
+LINE -(349, 412)
+LINE (347, 411)-(350, 411), 1
+
+LINE (353, 333)-(358, 336), 10, B
+'===========================  South Carolina ================================
+LINE (290, 241)-(305, 240)
+LINE -(345, 240)
+LINE -(350, 250)
+LINE -(380, 250)
+LINE -(415, 280)
+LINE -(385, 315)
+LINE -(380, 320)
+LINE -(375, 325)
+LINE -(350, 330)
+LINE -(350, 340)
+'===========================  North Carolina ================================
+LINE (320, 185)-(500, 185)
+LINE -(505, 190)
+LINE -(490, 195)
+LINE -(490, 205)
+LINE -(505, 205)
+LINE -(500, 215)
+LINE -(485, 220)
+LINE -(490, 225)
+LINE -(500, 225)
+LINE -(500, 230)
+LINE -(490, 235)
+LINE -(488, 240)
+LINE -(480, 241)
+LINE -(460, 250)
+LINE -(455, 255)
+LINE -(440, 265)
+LINE -(439, 270)
+LINE -(425, 278)
+LINE -(415, 280)
+LINE (510, 190)-(513, 200), , B
+LINE (510, 206)-(510, 226)
+LINE -(500, 236)
+LINE -(502, 241)
+LINE -(512, 228)
+LINE -(512, 208)
+LINE -(510, 206)
+
+'=========================== Chesapeake ====================================
+CALL chessie
+'=============== Ohio, Pennslyvania, Maryland, Virginia =====================
+LINE (291, 111)-(301, 101), 1
+LINE -(316, 96), 1
+LINE -(331, 76), 1
+LINE -(345, 51), 1
+LINE -(351, 30), 1
+LINE -(370, 35), 1
+
+LINE (351, 16)-(351, 54)
+LINE -(527, 54)
+LINE (381, 54)-(381, 81)
+LINE -(431, 66)
+LINE -(456, 81)
+LINE -(471, 111)
+LINE (226, 85)-(226, 16)
+'=============== Louisiana, Arkansas, Missouri =============================
+LINE (50, 375)-(60, 395), 1
+LINE -(105, 405), 1
+LINE -(110, 420), 1
+LINE -(125, 438), 1
+LINE (110, 398)-(105, 398)
+
+LINE -(90, 396)
+LINE -(90, 400)
+
+
+LINE -(105, 402)
+LINE -(120, 415)
+LINE -(115, 420)
+LINE -(125, 435)
+LINE -(120, 440)
+LINE -(110, 425)
+LINE -(100, 435)
+LINE -(90, 440)
+LINE -(50, 430)
+LINE -(25, 435)
+LINE -(1, 435)
+'----------------------------------
+PAINT (250, 430), 1, 10
+PAINT (110, 439), 1, 10
+PAINT (50, 439), 1, 10
+'----------------------------------
+LINE (1, 300)-(61, 300)       'Ark
+LINE (91, 205)-(71, 205)
+LINE -(76, 190)
+LINE -(71, 185)
+LINE -(1, 185)
+
+LINE (106, 170)-(91, 140), 1    'Missouri
+LINE -(71, 120), 1
+LINE -(76, 110), 1
+LINE -(76, 95), 1
+LINE -(71, 90), 1
+LINE -(61, 95), 1
+LINE -(56, 85), 1
+LINE -(50, 35), 1
+LINE -(46, 20), 1
+
+LINE -(38, 16)
+
+LINE (46, 20)-(61, 17), 1        'Illinois
+
+LINE (150, 17)-(150, 110)
+LINE -(147, 125), 1
+LINE -(140, 138), 1
+'========================== Rivers =========================================
+
+LINE (1, 80)-(15, 77), 1    'Missouri River
+LINE -(25, 95), 1
+LINE -(50, 98), 1
+LINE -(75, 96), 1
+
+LINE (120, 160)-(130, 200), 1  'Tenn River
+LINE -(135, 240), 1
+LINE -(130, 247), 1
+LINE -(160, 250), 1
+LINE -(200, 260), 1
+LINE -(240, 244), 1
+LINE -(245, 240), 1
+LINE -(270, 200), 1
+
+LINE (120, 160)-(140, 200), 1  'Cumberland River
+LINE -(160, 210), 1
+LINE -(200, 208), 1
+LINE -(240, 170), 1
+
+LINE (161, 400)-(155, 320), 1  'Tombigbee River
+LINE -(145, 300), 1
+
+LINE (161, 400)-(170, 370), 1  'Alabama River
+LINE -(200, 350), 1
+
+LINE (230, 425)-(231, 385), 1  'Chattahoochee River
+LINE -(233, 350), 1
+LINE -(240, 330), 1
+LINE -(270, 290), 1
+
+LINE (381, 81)-(431, 66), 1   'Potomac River
+LINE -(456, 81), 1
+LINE -(471, 111), 1
+
+LINE (485, 150)-(455, 145), 1   'James River
+LINE -(400, 150), 1
+
+LINE (489, 200)-(415, 185), 1   'Roanoke River
+LINE -(400, 160), 1
+
+LINE (296, 241)-(291, 265), 1   'Savannah River
+LINE -(350, 340), 1
+
+LINE (438, 271)-(430, 235), 1  'Cape Fear River
+LINE -(420, 205), 1
+
+LINE (500, 80)-(498, 50), 1 'Susquehanna River
+LINE -(470, 30), 1
+
+LINE (405, 290)-(360, 240), 1 'Pee Dee River
+
+LINE (400, 300)-(350, 280), 1 'Santee River
+
+LINE (270, 423)-(280, 410), 1 'Suwanee River
+LINE -(290, 390), 1
+
+LINE (342, 370)-(300, 350), 1 'Altamaha River
+
+LINE (50, 370)-(1, 330), 1 'Red River
+
+LINE (65, 280)-(1, 240), 1 'Arkansas River
+
+LINE (430, 66)-(400, 100), 1 ' Shenandoah River
+LINE -(380, 120), 1
+
+CALL showcity
+PSET (493, 280), 1
+IF navyloc(1) = 30 OR navyloc(2) = 30 THEN
+	DRAW "C11U7R4D3L3BR6BU3D7BU4R3U3D7BR3U7BD4BR4BU4D7R4"
+	LINE (485, 241)-(525, 270), 11, B
+END IF
+
+IF graf > 1 THEN CALL maptext
+IF commerce > 0 THEN
+LINE (447, 291)-(525, 317), 4, BF: LINE (447, 291)-(525, 317), 10, B
+y = 312
+a$ = "COMMERCE"
+FOR j = 1 TO LEN(a$): x = ASC(MID$(UCASE$(a$), j, 1)) - 64
+PSET (440 + 10 * j, y), 0: DRAW font$(x)
+NEXT j
+ELSE
+LINE (447, 291)-(525, 335), 1, BF
+END IF
+
+FOR i = 1 TO 40
+IF armyloc(i) > 0 THEN CALL placearmy(i)
+NEXT i
+
+FOR k = 1 TO 2
+CALL stax(k)
+NEXT k
+
+IF player = 2 GOTO nosee
+FOR i = 1 TO 40: IF armyloc(i) > 0 AND armymove(i) > 0 THEN CALL icon(armyloc(i), armymove(i), 1)
+NEXT i
+nosee:
+CALL ships
+CALL engine
+COLOR 13: LOCATE 24, 51: PRINT " "; UCASE$(LEFT$(month$(month), 3)); ","; year
+END SUB

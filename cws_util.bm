@@ -1,0 +1,74 @@
+SUB animate (index, flag)
+from = armyloc(index): to2 = armymove(index): armyloc(index) = 0
+x = cityx(from) - 12
+y = cityy(from) - 11
+x1 = .5 * (cityx(to2) + cityx(from))
+y1 = .5 * (cityy(to2) + cityy(from))
+
+CALL occupy(from): IF occupied(from) > 0 THEN CALL placearmy(occupied(from))
+       
+IF flag > 0 GOTO already
+	GET (x - 9, y - 7)-(x + 9, y + 6), anima
+	IF occupied(from) = 0 THEN LINE (x - 9, y - 8)-(x + 10, y + 8), 2, BF
+already:
+
+	FOR i = 2 TO 8
+	x1 = .1 * (i * cityx(to2) + (10 - i) * cityx(from))
+	y1 = .1 * (i * cityy(to2) + (10 - i) * cityy(from))
+	GET (x1 - 10, y1 - 10)-(x1 + 9, y1 + 9), image
+	PUT (x1 - 10, y1 - 10), anima, PSET
+	IF turbo! > 1 THEN CALL TICK(.1) ELSE CALL TICK(.02)
+	IF noise > 0 THEN SOUND 200, .1: SOUND 50, .1
+	PUT (x1 - 10, y1 - 10), image, PSET
+	NEXT i
+	armyloc(index) = from
+END SUB
+SUB normal (xbar, vary, result)
+' NOTE : vary is VARIANCE
+pct! = 0
+FOR k = 1 TO 12: pct! = pct! + RND: NEXT k
+pct! = pct! - 5.5
+result = xbar + pct! * SQR(vary)
+END SUB
+SUB bub2 (limit)
+DO
+	swaps% = FALSE
+	FOR i = 1 TO limit - 1
+	IF brray(i) > brray(i + 1) THEN
+		SWAP brray(i), brray(i + 1)
+		swaps% = i
+	END IF
+	NEXT i
+LOOP WHILE swaps%
+END SUB
+
+SUB bubble (limit)
+DO
+	swaps% = FALSE
+	FOR i = 1 TO limit - 1
+	IF mtx$(i) > mtx$(i + 1) THEN
+		SWAP mtx$(i), mtx$(i + 1)
+		SWAP array(i), array(i + 1)
+		swaps% = i
+	END IF
+	NEXT i
+LOOP WHILE swaps%
+END SUB
+SUB starfin (star, fin, who)
+star = 1: fin = 20: IF who = 2 THEN star = 21: fin = 40
+END SUB
+
+SUB stax (who)
+CALL starfin(star, fin, who)
+FOR i = star TO fin
+IF armysize(i) > 0 AND occupied(armyloc(i)) <> i THEN
+	target = armyloc(i)
+	x = cityx(target) - 12: y = cityy(target) - 12
+	CIRCLE (x, y), 3, 14
+END IF
+NEXT i
+END SUB
+SUB TICK (sec!)
+start! = TIMER
+DO WHILE TIMER - start! < sec! AND INKEY$ = "": LOOP
+END SUB
