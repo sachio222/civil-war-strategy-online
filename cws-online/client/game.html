@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CWS Online - Game</title>
+    <link rel="icon" href="assets/sprites/cwsicon.png" type="image/png" />
+    <link rel="stylesheet" href="css/game.css" />
+
+    <!-- PyScript -->
+    <link
+      rel="stylesheet"
+      href="https://pyscript.net/releases/2024.1.1/core.css"
+    />
+    <script
+      type="module"
+      src="https://pyscript.net/releases/2024.1.1/core.js"
+    ></script>
+
+    <!-- JS helper for performance-critical pixel operations -->
+    <script src="js/pixel_ops.js"></script>
+  </head>
+  <body>
+    <canvas id="gameCanvas" width="640" height="480"></canvas>
+
+    <!-- PyScript configuration -->
+    <script type="py" config="pyscript.toml" src="py/main.py"></script>
+  </body>
+</html>

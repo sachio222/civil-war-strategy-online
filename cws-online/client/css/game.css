@@ -1,0 +1,125 @@
+/* ==========================================================================
+   Civil War Strategy Online -- game.css
+   Canvas-only: exact QBasic SCREEN 12 port (640x480, scaled up)
+   ========================================================================== */
+
+body {
+  margin: 0;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#gameCanvas {
+  /* Crisp nearest-neighbor scaling (no blur when canvas matches display size) */
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  /* Display size = internal resolution; no bitmap scaling for maximum clarity */
+  width: 1280px;
+  height: 960px;
+}
+
+/* --- Lobby page (kept for index.html) ----------------------------------- */
+
+.lobby-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  background: #111;
+  font-family: "DOS", "Courier New", "Consolas", monospace;
+  color: #aaa;
+}
+
+.lobby-title {
+  font-size: 2rem;
+  color: #ffff55;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 2rem;
+  text-shadow: 2px 2px 0 #aa5500;
+}
+
+.lobby-box {
+  background: #1a1a2e;
+  border: 2px solid #444;
+  padding: 1.5rem 2rem;
+  margin-bottom: 1.5rem;
+  min-width: 340px;
+}
+
+.lobby-box h2 {
+  font-size: 1rem;
+  color: #55ffff;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.lobby-box label {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.lobby-box input,
+.lobby-box select {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.8rem;
+  background: #000;
+  border: 1px solid #333;
+  color: #fff;
+  font-family: "DOS", "Courier New", "Consolas", monospace;
+  font-size: 0.9rem;
+}
+
+.lobby-box input:focus,
+.lobby-box select:focus {
+  outline: none;
+  border-color: #55ffff;
+}
+
+.lobby-btn {
+  display: inline-block;
+  padding: 0.5rem 1.5rem;
+  background: #222;
+  border: 2px solid #444;
+  color: #55ff55;
+  font-family: "DOS", "Courier New", "Consolas", monospace;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+.lobby-btn:hover {
+  background: #333;
+  border-color: #55ff55;
+}
+
+.lobby-btn:active {
+  background: #444;
+}
+
+.lobby-status {
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  color: #ff5555;
+  min-height: 1.2em;
+}
+
+.lobby-code {
+  color: #ffff55;
+  font-size: 1.4rem;
+  letter-spacing: 0.3em;
+  padding: 0.3rem 0;
+}

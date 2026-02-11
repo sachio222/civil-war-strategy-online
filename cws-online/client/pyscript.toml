@@ -1,0 +1,23 @@
+packages = []
+
+[files]
+"./py/js_bridge.py?v=3" = "./js_bridge.py"
+"./py/constants.py?v=5" = "./constants.py"
+"./py/font.py?v=3" = "./font.py"
+"./py/sprites.py?v=3" = "./sprites.py"
+"./py/map_renderer.py?v=3" = "./map_renderer.py"
+"./py/ui.py?v=3" = "./ui.py"
+"./py/api_client.py?v=3" = "./api_client.py"
+"./py/ws_client.py?v=3" = "./ws_client.py"
+"./py/input_handler.py?v=3" = "./input_handler.py"
+"./py/game.py?v=3" = "./game.py"
+"./py/sound.py?v=3" = "./sound.py"
+"./py/animation.py?v=3" = "./animation.py"
+"./py/reports.py?v=3" = "./reports.py"
+"./py/commands.py?v=3" = "./commands.py"
+"./py/utility.py?v=3" = "./utility.py"
+"./py/title_screen.py?v=3" = "./title_screen.py"
+"./py/victory_screen.py?v=3" = "./victory_screen.py"
+"./py/save_load.py?v=3" = "./save_load.py"
+"./py/hot_seat.py?v=3" = "./hot_seat.py"
+"./py/main.py?v=3" = "./main.py"

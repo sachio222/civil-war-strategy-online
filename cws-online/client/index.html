@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Civil War Strategy Online</title>
+    <link rel="icon" href="assets/sprites/cwsicon.png" type="image/png" />
+    <link rel="stylesheet" href="css/game.css" />
+  </head>
+  <body>
+    <div class="lobby-container">
+      <h1 class="lobby-title">Civil War Strategy Online</h1>
+
+      <!-- Create Game -->
+      <div class="lobby-box" id="create-box">
+        <h2>Create New Game</h2>
+        <label for="scenario">Scenario</label>
+        <select id="scenario">
+          <option value="standard">Standard (1861)</option>
+          <option value="altmap">Alternate Map</option>
+        </select>
+        <label for="difficulty">Difficulty (1-5)</label>
+        <select id="difficulty">
+          <option value="1">1 - Easy</option>
+          <option value="2">2 - Below Average</option>
+          <option value="3" selected>3 - Average</option>
+          <option value="4">4 - Above Average</option>
+          <option value="5">5 - Hard</option>
+        </select>
+        <button class="lobby-btn" id="btn-create">Create Game</button>
+        <div class="lobby-status" id="create-status"></div>
+      </div>
+
+      <!-- Join Game -->
+      <div class="lobby-box" id="join-box">
+        <h2>Join Existing Game</h2>
+        <label for="game-code">Game Code</label>
+        <input
+          type="text"
+          id="game-code"
+          maxlength="6"
+          placeholder="Enter 6-character code"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="lobby-btn" id="btn-join">Join Game</button>
+        <div class="lobby-status" id="join-status"></div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        var API_BASE = window.location.origin + "/api";
+
+        var btnCreate = document.getElementById("btn-create");
+        var btnJoin = document.getElementById("btn-join");
+        var createStatus = document.getElementById("create-status");
+        var joinStatus = document.getElementById("join-status");
+
+        function setStatus(el, msg, isError) {
+          el.textContent = msg;
+          el.style.color = isError ? "#FF5555" : "#55FF55";
+        }
+
+        function storeAndRedirect(gameCode, playerToken, side) {
+          localStorage.setItem("cws_game_code", gameCode);
+          localStorage.setItem("cws_player_token", playerToken);
+          localStorage.setItem("cws_player_side", String(side));
+          window.location.href = "game.html";
+        }
+
+        /* ---- Create Game ---- */
+        btnCreate.addEventListener("click", function () {
+          btnCreate.disabled = true;
+          setStatus(createStatus, "Creating game...", false);
+
+          var scenario = document.getElementById("scenario").value;
+          var difficulty = parseInt(
+            document.getElementById("difficulty").value,
+            10,
+          );
+
+          fetch(API_BASE + "/games", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              scenario: scenario,
+              difficulty: difficulty,
+            }),
+          })
+            .then(function (res) {
+              if (!res.ok)
+                return res.json().then(function (e) {
+                  throw new Error(e.detail || "Failed");
+                });
+              return res.json();
+            })
+            .then(function (data) {
+              setStatus(createStatus, "Game created! Code:", false);
+              var codeEl = document.createElement("div");
+              codeEl.className = "lobby-code";
+              codeEl.textContent = data.game_code;
+              createStatus.appendChild(codeEl);
+
+              /* Brief delay so user can see the code, then redirect */
+              setTimeout(function () {
+                storeAndRedirect(data.game_code, data.player_token, data.side);
+              }, 1500);
+            })
+            .catch(function (err) {
+              setStatus(createStatus, err.message, true);
+              btnCreate.disabled = false;
+            });
+        });
+
+        /* ---- Join Game ---- */
+        btnJoin.addEventListener("click", function () {
+          var code = document
+            .getElementById("game-code")
+            .value.trim()
+            .toUpperCase();
+          if (code.length === 0) {
+            setStatus(joinStatus, "Please enter a game code.", true);
+            return;
+          }
+          btnJoin.disabled = true;
+          setStatus(joinStatus, "Joining game...", false);
+
+          fetch(API_BASE + "/games/join", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ game_code: code }),
+          })
+            .then(function (res) {
+              if (!res.ok)
+                return res.json().then(function (e) {
+                  throw new Error(e.detail || "Failed");
+                });
+              return res.json();
+            })
+            .then(function (data) {
+              storeAndRedirect(data.game_code, data.player_token, data.side);
+            })
+            .catch(function (err) {
+              setStatus(joinStatus, err.message, true);
+              btnJoin.disabled = false;
+            });
+        });
+
+        /* Allow Enter key in game code input */
+        document
+          .getElementById("game-code")
+          .addEventListener("keydown", function (e) {
+            if (e.key === "Enter") btnJoin.click();
+          });
+      })();
+    </script>
+  </body>
+</html>
