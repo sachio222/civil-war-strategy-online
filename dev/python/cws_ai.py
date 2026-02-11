@@ -426,7 +426,9 @@ def smarts(g: 'GameState') -> None:
         icon(g, g.armyloc[i], g.armymove[i], 9)                    # L132
         tick(g, g.turbo - 1)                                        # L133
 
-        # Restore map tile under army icon                          # L134
+        # Restore arrow then map tile under army icon               # L134
+        from cws_map import _clear_arrow
+        _clear_arrow(g)
         g.screen.put_image(
             g.cityx[g.armyloc[i]] - 20,
             g.cityy[g.armyloc[i]] - 19,

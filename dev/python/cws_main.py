@@ -152,7 +152,9 @@ def _newgame_init(g: 'GameState', replay: int) -> None:
     g.vicflag[1] = 1
     filer(g, 1)                                             # L24
 
-    # L25-31: mtn.vga loading — skip for monochrome
+    # L25-31: load all VGA sprites (mtn, cwsicon, faces, forts)
+    from vga_sprite import load_all_sprites
+    load_all_sprites(g)
 
     _load_font(g)                                           # L33-34
 
@@ -182,7 +184,7 @@ def _newgame_init(g: 'GameState', replay: int) -> None:
         g.cash[i] = int(g.cash[i] + 50 * random.random())
     g.choose = 0                                            # L53
 
-    # L57-62: cwsicon.vga loading, PUT/GET — skip for monochrome
+    # L57-62: cwsicon.vga / Ncap — loaded by load_all_sprites() above
 
     # Title screen                                          L63-88
     s.cls()                                                 # L63

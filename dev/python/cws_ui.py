@@ -365,10 +365,18 @@ def menu(g: 'GameState', switch: int) -> int:
         elif switch == 6:                                            # L137
             icon(g, g.armyloc[g.array[row]], 0, 9)
         elif switch == 8:                                            # L138-153
-            # Commander face graphic -- skip for monochrome
-            # Original loads face1..5.vga files
+            # Commander face graphic
             if g.graf > 2 and row > 0:
                 s.line(548, 148, 592, 216, 15, "B")                 # L140
+                a = row                                              # L141
+                if g.side == 1:
+                    a = 6 - row
+                face_surfs = getattr(g, 'face_surfaces', {})
+                if a in face_surfs:
+                    s.put_image(550, 150, face_surfs[a])             # L147
+                    if g.side == 2:                                   # L148-151
+                        s.paint(560, 160, 8, 0)
+                        s.paint(570, 155, 7, 0)
         elif switch == 9:                                            # L154
             icon(g, g.array[row], 0, 9)
 
@@ -477,6 +485,8 @@ def menu(g: 'GameState', switch: int) -> int:
             s.print_text(g.mtx[row1])
 
             # Clean up old row's icon                                # L173-178
+            from cws_map import _clear_arrow
+            _clear_arrow(g)                                          # always erase arrow
             if switch in (1, 2, 9):                                  # L174
                 if g.mtx[row1] != "EXIT":                            # L175
                     icon(g, g.array[row1], 0, 8)
@@ -497,6 +507,8 @@ def menu(g: 'GameState', switch: int) -> int:
     g.tly = 0
 
     # Restore icon for current row                                   # L235-240
+    from cws_map import _clear_arrow
+    _clear_arrow(g)                                                  # always erase arrow
     if switch in (1, 2, 9):                                          # L236
         icon(g, g.array[row], 0, 8)                                  # L237
     elif switch == 6:                                                # L238

@@ -252,7 +252,11 @@ def battle(g: 'GameState', attack: int, defend: int) -> tuple:
     # Battle visual                                         L90-102
     if g.graf > 2:
         cannon(g)
-        # L92-99: fort graphic loading → skip for monochrome
+        # L92-99: fort graphic
+        k = g.fort[g.armyloc[defend]]                      # L92
+        fort_surfs = getattr(g, 'fort_surfaces', {})
+        if k in fort_surfs:
+            s.put_image(550, 270, fort_surfs[k])           # L98
     else:
         clrrite(g)                                         # L101
 

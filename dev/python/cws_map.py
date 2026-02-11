@@ -52,6 +52,16 @@ def flashcity(g: 'GameState', which: int) -> None:
 #  SUB icon (from, dest, kind)                                  Lines 15-88
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _clear_arrow(g: 'GameState') -> None:
+    """Restore the background under any existing arrow cursor."""
+    pos = getattr(g, '_arrow_save_pos', None)
+    img = getattr(g, '_arrow_save', None)
+    if pos and img is not None:
+        g.screen.put_image(pos[0], pos[1], img)
+    g._arrow_save = None
+    g._arrow_save_pos = None
+
+
 def icon(g: 'GameState', from_: int, dest: int, kind: int) -> None:
     """Draw various movement/effect icons. All 11 CASE types ported."""
     if from_ < 1 or from_ > 40:                           # L16: noshow
@@ -125,18 +135,27 @@ def icon(g: 'GameState', from_: int, dest: int, kind: int) -> None:
 
     elif kind == 7:                                        # L60-64
         # Save image and draw white highlight box
+        _clear_arrow(g)                                    # auto-clean any arrow
         g._saved_image = s.get_image(x - 8, y - 8, x + 8, y + 8)  # L62
+        g._saved_image_pos = (x - 8, y - 8)
         s.line(x - 7, y - 7, x + 7, y + 7, 15, "B")     # L63
         s.line(x - 8, y - 6, x + 8, y + 6, 15, "B")     # L64
 
     elif kind == 8:                                        # L65-67
         # Restore saved image
-        if x > 0 and hasattr(g, '_saved_image') and g._saved_image is not None:
-            s.put_image(x - 8, y - 8, g._saved_image)    # L67
+        _clear_arrow(g)                                    # auto-clean any arrow
+        pos = getattr(g, '_saved_image_pos', None)
+        img = getattr(g, '_saved_image', None)
+        if pos and img is not None:
+            s.put_image(pos[0], pos[1], img)               # L67
+        g._saved_image = None
+        g._saved_image_pos = None
 
     elif kind == 9:                                        # L69-80
-        # Arrow pointer
-        g._saved_image = s.get_image(x - 8, y - 8, x + 10, y + 7)  # L71
+        # Arrow pointer — auto-clean any existing arrow first
+        _clear_arrow(g)
+        g._arrow_save = s.get_image(x - 8, y - 8, x + 10, y + 7)  # L71
+        g._arrow_save_pos = (x - 8, y - 8)
         x = x + 7                                         # L72
         y = y + 5
         # L80: PAINT (x-2, y-1), 15, 12 — fill interior white
@@ -181,8 +200,10 @@ def showcity(g: 'GameState') -> None:
 
         if i == g.capcity[1] or i == g.capcity[2]:        # L94
             # Capital city: special marker
-            # L95: PUT Ncap → monochrome: draw capital outline
-            s.line(cx - 6, cy - 6, cx + 6, cy + 6, 15, "B")
+            if hasattr(g, 'ncap_surface') and g.ncap_surface is not None:
+                s.put_image(cx - 6, cy - 6, g.ncap_surface)  # L95: PUT Ncap
+            else:
+                s.line(cx - 6, cy - 6, cx + 6, cy + 6, 15, "B")
             # L96-98: side box
             s.line(cx + 9, cy - 4, cx + 15, cy + 4, 0, "BF")
             s.line(cx + 8, cy - 5, cx + 13, cy + 2, 3, "BF")
@@ -926,7 +947,18 @@ def usa(g: 'GameState') -> None:
     s.line(2, 17, 526, 439, 2, "BF")                      # L492 equivalent
     s.color(10)                                            # L493
 
-    # ── Mountains (L495-505): skip sprites for monochrome ──
+    # ── Mountains (L495-505) ──
+    if hasattr(g, 'mtn_surface') and g.mtn_surface is not None:
+        mtn = g.mtn_surface
+        s.put_image(380, 30, mtn)                              # L496
+        s.put_image(270, 200, mtn)                             # L497
+        s.put_image(310, 160, mtn)                             # L498
+        s.put_image(350, 120, mtn)                             # L499
+        s.put_image(200, 185, mtn)                             # L500
+        s.put_image(250, 130, mtn)                             # L501
+        s.put_image(320, 80, mtn)                              # L502
+        s.put_image(30, 150, mtn)                              # L503
+        s.line(30, 150, 70, 190, 2, "BF")                     # L504
 
     # ═══════════════════ Kentucky ══════════════════════════ L506-536
     s.line(105, 190, 150, 190, 10)                         # L507
