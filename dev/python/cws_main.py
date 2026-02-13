@@ -48,8 +48,13 @@ def _unionplus(g: 'GameState') -> None:
         g.usadv = int(g.usadv * 0.7)
 
 
-def _blanken(g: 'GameState') -> None:
-    """GOSUB blanken (L711-717): 2-player turn transition screen."""
+def _blanken(g: 'GameState', pause: bool = True) -> None:
+    """GOSUB blanken (L711-717): player turn transition screen.
+
+    pause=True: wait for keypress (local 2P mode).
+    pause=False: brief auto-dismiss (online mode).
+    """
+    import pygame
     s = g.screen
     c = g.side_color(g.side)                                 # L711
     s.cls()                                                 # L712
@@ -62,7 +67,10 @@ def _blanken(g: 'GameState') -> None:
     s.locate(17, 30)
     s.print_text(f"{g.force[g.side]} PLAYER TURN")
     s.update()
-    _wait_key(g)                                            # L716
+    if pause:
+        _wait_key(g)                                        # L716
+    else:
+        pygame.time.wait(1200)
 
 
 def _month_transition(g: 'GameState') -> None:
@@ -423,8 +431,12 @@ def _newmonth(g: 'GameState') -> bool:
     g.vptotal = g.income[1] + g.income[2]                   # L159
 
     chosit = 22                                             # L161 (local)
-    if g.player >= 2:                                       # L162
+    if g.player == 2:                                       # L162 (local 2P only)
         _blanken(g)
+        usa(g)
+    elif g.player == 3:
+        # Online: skip _blanken (the online waiting screen handles
+        # the turn transition); just redraw the map.
         usa(g)
 
     victor(g)                                               # L163
@@ -1309,12 +1321,14 @@ def _show_event_replay(g: 'GameState') -> None:
     """
     import pygame
     from cws_map import image2, flashcity, showcity, icon, _upbox, usa
-    from cws_ui import clrbot, clrrite, flags
-    from cws_combat import cannon, surrender as surrender_gfx
+    from cws_ui import clrbot, clrrite
+    from cws_combat import (cannon, surrender as surrender_gfx,
+                            draw_victory_banner, draw_casualty_line)
     from cws_navy import shipicon
     from cws_util import animate, tick
     from cws_army import placearmy
     from cws_data import occupy
+    from cws_sound import qb_sound, qb_play
 
     if not g.event_log:
         return
@@ -1455,22 +1469,33 @@ def _show_event_replay(g: 'GameState') -> None:
         elif etype == "battle":
             y = 68
             clrrite(g)
-            # Attacker stats
+            c = 9 if evt["atk_id"] <= 20 else 7
+
+            # Attacker stats (matches live battle() display)
             s.color(11)
             s.locate(1, y)
             s.print_text("Attacker")
-            c = 9 if evt["atk_id"] <= 20 else 7
             s.color(c)
             s.locate(2, y)
             s.print_text(evt["atk_name"])
             s.locate(3, y)
             s.print_text(f"{evt['atk_size']}00")
+            s.color(c)
+            s.locate(4, y)
+            s.print_text(f"Lead    {evt.get('atk_lead', '?')}")
+            s.locate(5, y)
+            s.print_text(f"Exper   {evt.get('atk_exper', '?')}")
+            a_sup = evt.get("atk_supply", 1)
+            if a_sup < 1:
+                s.color(13)
+            s.locate(6, y)
+            s.print_text(f"Supply  {a_sup}")
             s.color(11)
             s.locate(11, y)
             s.print_text(f"Attack  {evt['atk_power']}")
             s.line(530, 155, 635, 175, 11, "B")
 
-            # Defender stats
+            # Defender stats (matches live battle() display)
             s.locate(13, y)
             s.print_text("Defender")
             s.color(16 - c)
@@ -1478,6 +1503,26 @@ def _show_event_replay(g: 'GameState') -> None:
             s.print_text(evt["def_name"])
             s.locate(15, y)
             s.print_text(f"{evt['def_size']}00")
+            s.locate(16, y)
+            s.print_text(f"Lead    {evt.get('def_lead', '?')}")
+            s.locate(17, y)
+            s.print_text(f"Exper   {evt.get('def_exper', '?')}")
+            d_sup = evt.get("def_supply", 1)
+            if d_sup < 1:
+                s.color(13)
+            s.locate(18, y)
+            s.print_text(f"Supply  {d_sup}")
+            s.color(16 - c)
+            fort_val = evt.get("fort", 0)
+            fort_str = "Fort"
+            if fort_val == 1 and not evt.get("def_moving", False):
+                fort_str = "Fort+"
+            elif fort_val >= 2 and not evt.get("def_moving", False):
+                fort_str = "Fort++"
+            if fort_val > 0 and not evt.get("def_moving", False):
+                s.color(13)
+            s.locate(19, y)
+            s.print_text(f"{fort_str:8s}{fort_val}")
             s.color(11)
             s.locate(25, y)
             s.print_text(f"Defend  {evt['def_power']}")
@@ -1500,34 +1545,20 @@ def _show_event_replay(g: 'GameState') -> None:
                 if k in fort_surfs:
                     s.put_image(550, 270, fort_surfs[k])
 
-            # Victory flag
-            ws = evt["winner_side"]
-            flags(g, ws, 0, 0)
-            side_str = "UNION" if ws == 1 else "REBEL"
-            s.color(14)
-            s.locate(3, 68)
-            s.print_text(f"{side_str} VICTORY")
-            s.locate(4, 71)
-            s.print_text("in")
-            s.locate(5, 69)
-            s.print_text(evt["city"])
+            if g.noise > 0:
+                qb_sound(77, 0.5)
+                qb_sound(59, 0.5)
 
-            clrbot(g)
-            s.color(11)
-            s.print_text(evt["msg"])
+            # Victory flag + banner (shared helper)
+            ws = evt["winner_side"]
+            draw_victory_banner(g, ws, evt["city"], evt["msg"])
             s.update()
             _timed_pause(1500)
 
-            # Casualty line
-            s.color(c)
-            s.locate(1, 1)
-            s.print_text(
-                f"Attack Loss: {evt['atk_loss']}00/{evt['atk_size']}00 ({evt['atk_pct']}%) |"
-            )
-            s.color(16 - c)
-            s.print_text(
-                f"| Defend Loss: {evt['def_loss']}00/{evt['def_size']}00 ({evt['def_pct']}%)"
-            )
+            # Casualty line (shared helper)
+            draw_casualty_line(g, c,
+                               evt['atk_loss'], evt['atk_size'], evt['atk_pct'],
+                               evt['def_loss'], evt['def_size'], evt['def_pct'])
             s.update()
             _wait_key(g)
             clrrite(g)
@@ -1605,16 +1636,23 @@ def _show_event_replay(g: 'GameState') -> None:
                 s.print_text(evt.get("army_name", ""))
                 s.locate(4, 68)
                 s.print_text("surrenders !")
+            if g.noise > 1:
+                loser_side = UNION if aid <= 20 else CONFEDERATE
+                if loser_side != g.side:
+                    qb_play("MFMST220o3e4g8g2.g8g8g8o4c2")
             clrbot(g)
             s.color(11)
             s.print_text(evt["msg"][:79])
             s.update()
             _wait_key(g)
             clrrite(g)
-            # Clear army from replay state
+            # Clear army from replay state and award VP
             if aid > 0:
                 if g.armymove[aid] > 0:
                     icon(g, g.armyloc[aid], g.armymove[aid], 4)
+                # Award victory points to the capturing side (matches tupdate L275)
+                loser_side = UNION if aid <= 20 else CONFEDERATE
+                g.victory[g.enemy_of(loser_side)] += 25
                 g.armyloc[aid] = 0
                 g.armysize[aid] = 0
                 g.armyname[aid] = ""
@@ -1629,8 +1667,24 @@ def _show_event_replay(g: 'GameState') -> None:
             side = evt.get("side", 1)
             if cid > 0:
                 g.cityp[cid] = side
+                # Apply victory points (matches capture() L288-291)
+                g.victory[side] += evt.get("cityv", 0)
+                if evt.get("is_capital"):
+                    g.victory[side] += 100
+                    g.victory[g.enemy_of(side)] -= 100
+                    g.capcity[g.enemy_of(side)] = 0
+                    image2(g, f"{evt.get('city_name', '')} has fallen!", 4)
+                # Fort damage from battle
+                if evt.get("fort_damage"):
+                    g.fort[cid] = max(0, g.fort[cid] - 1)
                 showcity(g)
                 flashcity(g, cid)
+            if g.noise > 1:
+                side = evt.get("side", 1)
+                if side == UNION:
+                    qb_play("MNMFL16o2T120dd.dd.co1b.o2do3g.ab.bb.ag")
+                else:
+                    qb_play("MNMFT160o2L16geL8ccL16cdefL8ggge")
             clrbot(g)
             s.color(11)
             s.print_text(evt["msg"][:79])
@@ -1643,6 +1697,8 @@ def _show_event_replay(g: 'GameState') -> None:
             s.color(15)
             s.print_text(evt["msg"][:79])
             if evt.get("success"):
+                if g.noise > 0:
+                    qb_play("t210l8o4co3bo4l4co3ccL8gfego4co3bo4c")
                 s.pset(500, 465, 0)
                 shipicon(g, evt.get("side", 1), evt.get("ship_type", 1))
                 s.update()
@@ -1659,6 +1715,10 @@ def _show_event_replay(g: 'GameState') -> None:
             s.line(447, 291, 525, 335, 1, "BF")
             for k in range(1, 6):
                 s.circle(480, 315, 4 * k, 11)
+            if g.noise > 0:
+                qb_sound(590, 0.5)
+                qb_sound(999, 0.5)
+                qb_sound(1999, 0.5)
             s.update()
             _timed_pause(1500)
             s.line(447, 291, 525, 335, 1, "BF")
@@ -1670,6 +1730,40 @@ def _show_event_replay(g: 'GameState') -> None:
         # ──────────── Naval ────────────
         elif etype == "naval":
             image2(g, evt["msg"], 4)
+
+        # ──────────── Railroad Depart ────────────
+        elif etype == "railroad_depart":
+            if g.noise > 0:
+                qb_sound(2222, 1)
+            clrbot(g)
+            s.color(11)
+            s.print_text(evt["msg"][:79])
+            army_id = evt["army_id"]
+            from_city = evt["from_city"]
+            # Remove army from origin (train in transit)
+            g.armyloc[army_id] = 0
+            g.armymove[army_id] = evt["dest_city"]
+            occupy(g, from_city)
+            if g.occupied[from_city] > 0:
+                placearmy(g, g.occupied[from_city])
+            s.update()
+            _timed_pause(1200)
+
+        # ──────────── Railroad Arrive ────────────
+        elif etype == "railroad_arrive":
+            if g.noise > 0:
+                qb_sound(1200, 2)
+            clrbot(g)
+            s.color(11)
+            s.print_text(evt["msg"][:79])
+            army_id = evt["army_id"]
+            target = evt["city"]
+            g.armyloc[army_id] = target
+            g.armymove[army_id] = -1
+            occupy(g, target)
+            placearmy(g, army_id)
+            s.update()
+            _timed_pause(1200)
 
         # ──────────── Unknown dict ────────────
         else:
@@ -2239,6 +2333,12 @@ def game_loop(g: 'GameState') -> None:
                             continue
                         # State downloaded, proceed to main game loop
 
+        # ── Show turn transition for first online turn ──
+        if g.player == 3:
+            g.side = g.my_side
+            _blanken(g, pause=False)
+            usa(g)
+
         # ── Main game loop: menu0 ↔ newmonth ↔ online_wait ──
         while True:
             result = _main_menu(g)
@@ -2275,7 +2375,10 @@ def game_loop(g: 'GameState') -> None:
                 if wait_result == "finished":
                     clear_session(_gc)
                     break
-                # ready: state downloaded, loop back to _main_menu
+                # ready: state downloaded — show turn transition
+                g.side = g.my_side
+                _blanken(g, pause=False)
+                usa(g)
                 continue
 
             # result == "newmonth"

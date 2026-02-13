@@ -31,6 +31,48 @@ def _strong(g: 'GameState', index: int) -> str:
     return f"{g.armysize[index]}00"
 
 
+def draw_victory_banner(g: 'GameState', winner_side: int, city_name: str,
+                        win_msg: str) -> None:
+    """Draw the 'UNION/REBEL VICTORY in CityName' banner with flags.
+
+    Shared by live battle() and _show_event_replay() battle handler.
+    """
+    from cws_ui import flags, clrbot
+
+    s = g.screen
+    side_str = "UNION" if winner_side == UNION else "REBEL"
+    s.color(14)
+    s.locate(3, 68)
+    s.print_text(f"{side_str} VICTORY")
+    s.locate(4, 71)
+    s.print_text("in")
+    s.locate(5, 69)
+    s.print_text(city_name)
+    flags(g, winner_side, 0, 0)
+    clrbot(g)
+    s.color(11)
+    s.print_text(win_msg)
+
+
+def draw_casualty_line(g: 'GameState', atk_color: int,
+                       atk_loss: int, atk_total: int, atk_pct: int,
+                       def_loss: int, def_total: int, def_pct: int) -> None:
+    """Draw the top-bar casualty summary line.
+
+    Shared by live battle() and _show_event_replay() battle handler.
+    """
+    s = g.screen
+    s.color(atk_color)
+    s.locate(1, 1)
+    s.print_text(
+        f"Attack Loss: {atk_loss}00/{atk_total}00 ({atk_pct}%) |"
+    )
+    s.color(16 - atk_color)
+    s.print_text(
+        f"| Defend Loss: {def_loss}00/{def_total}00 ({def_pct}%)"
+    )
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  SUB battle (attack, defend, win, lose)                      Lines 1-193
 # ═══════════════════════════════════════════════════════════════════════════
@@ -293,23 +335,9 @@ def battle(g: 'GameState', attack: int, defend: int) -> tuple:
         win, lose = defend, attack
 
     # ── Display victory ──                                  L117-123
-    a_str = "UNION"                                        # L117
-    if win > 20:
-        a_str = "REBEL"
-    s.color(14)
-    s.locate(3, 68)                                        # L118
-    s.print_text(f"{a_str} VICTORY")
-    s.locate(4, 71)                                        # L119
-    s.print_text("in")
-    s.locate(5, 69)                                        # L120
-    s.print_text(g.city[g.armyloc[defend]])
-    a_side = UNION                                          # L121
-    if win > 20:
-        a_side = CONFEDERATE
-    flags(g, a_side, 0, 0)                                 # L122
-    clrbot(g)
-    s.color(11)
-    s.print_text(
+    a_side = UNION if win <= 20 else CONFEDERATE            # L121
+    draw_victory_banner(
+        g, a_side, g.city[g.armyloc[defend]],
         f"{g.armyname[win]} defeats {g.armyname[lose]} in "
         f"{g.city[g.armyloc[defend]]}"
     )
@@ -361,13 +389,11 @@ def battle(g: 'GameState', attack: int, defend: int) -> tuple:
     if x_pct < 1:
         x_pct = 1
 
-    s.color(c)                                             # L159
-    s.locate(1, 1)                                         # L160
     atk_pct = int(100 * killa / g.armysize[attack]) if g.armysize[attack] > 0 else 0
-    s.print_text(f"Attack Loss: {killa}00/{_strong(g, attack)} ({atk_pct}%) |")
-    s.color(16 - c)                                        # L164
     def_pct = int(100 * killd / g.armysize[defend]) if g.armysize[defend] > 0 else 0
-    s.print_text(f"| Defend Loss: {killd}00/{_strong(g, defend)} ({def_pct}%)")
+    draw_casualty_line(g, c,
+                       killa, g.armysize[attack], atk_pct,
+                       killd, g.armysize[defend], def_pct)
 
     # Build history string                                  L168-175
     atk_str = f" ({killa}00/{g.armysize[attack]}00) "
@@ -387,8 +413,14 @@ def battle(g: 'GameState', attack: int, defend: int) -> tuple:
             "city": g.city[g.armyloc[defend]],
             "atk_name": g.armyname[attack], "atk_id": attack,
             "atk_size": g.armysize[attack],
+            "atk_lead": g.armylead[attack],
+            "atk_exper": g.armyexper[attack],
+            "atk_supply": g.supply[attack],
             "def_name": g.armyname[defend], "def_id": defend,
             "def_size": g.armysize[defend],
+            "def_lead": g.armylead[defend],
+            "def_exper": g.armyexper[defend],
+            "def_supply": g.supply[defend],
             "atk_power": int(x), "def_power": int(x1),
             "odds": a_pct,
             "winner": "attacker" if win == attack else "defender",
@@ -396,6 +428,7 @@ def battle(g: 'GameState', attack: int, defend: int) -> tuple:
             "atk_loss": killa, "atk_pct": atk_pct,
             "def_loss": killd, "def_pct": def_pct,
             "fort": g.fort[g.armyloc[defend]],
+            "def_moving": g.armymove[defend] != 0,
             "msg": f"{g.armyname[win]} defeats {g.armyname[lose]} in {g.city[g.armyloc[defend]]}"
         })
         g._skip_scribe_log = True
@@ -623,12 +656,16 @@ def capture(g: 'GameState', active: int, c: int, s_side: int, flag: int) -> None
 
     # Emit structured capture event for online replay
     if g.player == 3:
+        is_capital = (c == g.capcity[g.enemy_of(s_side)])
         g.event_log.append({
             "type": "capture",
             "city_id": c,
             "city_name": g.city[c],
             "army_name": g.armyname[active],
             "side": s_side,
+            "cityv": g.cityv[c],
+            "is_capital": is_capital,
+            "fort_damage": 1 if (g.fort[c] > 0 and flag > 0) else 0,
             "msg": a_str
         })
         g._skip_scribe_log = True

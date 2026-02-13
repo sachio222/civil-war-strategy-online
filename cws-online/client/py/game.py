@@ -47,6 +47,8 @@ _menu_options = []
 _menu_title = ""
 _menu_tlx = 67
 _menu_tly = 13
+_replay_active = False
+_replay_task = None
 _menu_colour = 4
 _menu_hilite = 11
 _move_source_army = None
@@ -116,6 +118,10 @@ def render():
     # Full-screen report mode
     if _current_state == GamePhase.REPORT:
         ui.draw_report(_ctx, _report_lines)
+        return
+
+    # Event replay: managed by show_event_replay coroutine, don't redraw
+    if _current_state == GamePhase.EVENT_REPLAY:
         return
 
     # Victory screen (drawn by victory_screen module, don't redraw)
@@ -193,7 +199,8 @@ def _draw_current_menu():
         return
     if _current_state in (GamePhase.WAITING, GamePhase.BATTLE_DISPLAY,
                           GamePhase.REPORT, GamePhase.LOADING, GamePhase.VICTORY,
-                          GamePhase.HOT_SEAT_BLANK, GamePhase.TITLE_SCREEN):
+                          GamePhase.HOT_SEAT_BLANK, GamePhase.TITLE_SCREEN,
+                          GamePhase.EVENT_REPLAY):
         return
     ui.draw_menu(_ctx, _menu_title, _menu_options, _menu_selected,
                  _menu_tlx, _menu_tly, _menu_colour, _menu_hilite)
@@ -256,6 +263,8 @@ def _enter_state(new_state: str):
     elif new_state == GamePhase.HOT_SEAT_BLANK:
         _menu_options = []
     elif new_state == GamePhase.TITLE_SCREEN:
+        _menu_options = []
+    elif new_state == GamePhase.EVENT_REPLAY:
         _menu_options = []
 
     render()
@@ -866,6 +875,366 @@ def _flash_city(city_id):
         asyncio.ensure_future(animation.flash_city(_ctx, city))
 
 
+# --------------------------------------------------------------------------- #
+#  Event Replay — animates opponent's turn events on Canvas
+# --------------------------------------------------------------------------- #
+
+_SNAP_KEYS = [
+    "armyloc", "armymove", "armysize", "armyname", "armylead",
+    "armyexper", "supply", "occupied", "fort", "cityp",
+    "navyloc", "navysize", "fleet", "victory", "capcity",
+]
+
+
+def _gs_get_list(gs, key):
+    """Get a list field from game state, handling dict vs JsProxy."""
+    if isinstance(gs, dict):
+        return gs.get(key, [])
+    try:
+        return gs[key]
+    except Exception:
+        return []
+
+
+def _gs_set_list(gs, key, vals):
+    """Set a list field on game state."""
+    if isinstance(gs, dict):
+        gs[key] = vals
+    else:
+        try:
+            gs[key] = vals
+        except Exception:
+            pass
+
+
+def _replay_draw_map():
+    """Redraw the full map using current _game_state onto the main canvas."""
+    if _ctx is None or _game_state is None:
+        return
+    _ctx.fillStyle = "#000000"
+    _ctx.fillRect(0, 0, 640, 480)
+    try:
+        map_renderer.draw_map(_ctx, _game_state)
+    except Exception:
+        pass
+    ui.topbar(_ctx, _game_state)
+
+
+def _replay_get_city_pos(city_id):
+    """Get (x, y) for a city from the current game state."""
+    cities = _game_state.get("cities", {}) if isinstance(_game_state, dict) else {}
+    city = cities.get(str(city_id)) or cities.get(city_id)
+    if city:
+        cx = city.get("x", 0) if isinstance(city, dict) else getattr(city, "x", 0)
+        cy = city.get("y", 0) if isinstance(city, dict) else getattr(city, "y", 0)
+        return cx, cy
+    return 0, 0
+
+
+def _replay_update_army(army_id, location=None, move_target=None, size=None):
+    """Update army fields in _game_state for replay state tracking."""
+    if _game_state is None:
+        return
+    armies = _game_state.get("armies", {}) if isinstance(_game_state, dict) else {}
+    army = armies.get(str(army_id)) or armies.get(army_id)
+    if not army:
+        return
+    if isinstance(army, dict):
+        if location is not None:
+            army["location"] = location
+        if move_target is not None:
+            army["move_target"] = move_target
+        if size is not None:
+            army["size"] = size
+    else:
+        if location is not None:
+            try:
+                army.location = location
+            except Exception:
+                pass
+        if move_target is not None:
+            try:
+                army.move_target = move_target
+            except Exception:
+                pass
+        if size is not None:
+            try:
+                army.size = size
+            except Exception:
+                pass
+
+
+def _replay_update_city_owner(city_id, side):
+    """Update city ownership in _game_state for replay."""
+    if _game_state is None:
+        return
+    cities = _game_state.get("cities", {}) if isinstance(_game_state, dict) else {}
+    city = cities.get(str(city_id)) or cities.get(city_id)
+    if city:
+        if isinstance(city, dict):
+            city["owner"] = side
+        else:
+            try:
+                city.owner = side
+            except Exception:
+                pass
+
+
+async def show_event_replay(event_log, post_state):
+    """Replay captured events from opponent's turn with Canvas animations.
+
+    Mirrors the desktop _show_event_replay() in cws_main.py.
+    Processes event_log entries sequentially with delays/animations,
+    then restores the final post-state and returns to main menu.
+
+    Args:
+        event_log: list of event dicts from the server
+        post_state: the final game state dict (to restore after replay)
+    """
+    global _game_state, _map_dirty, _replay_active
+
+    if not event_log or _ctx is None:
+        return
+
+    _replay_active = True
+    _enter_state(GamePhase.EVENT_REPLAY)
+
+    # Parse event log: extract month header, snapshot, and events
+    month_label = ""
+    snapshot = None
+    events = []
+    for evt in event_log:
+        if isinstance(evt, str) and evt.startswith("__month__:"):
+            month_label = evt[len("__month__:"):]
+        elif isinstance(evt, dict) and evt.get("type") == "__snapshot__":
+            snapshot = evt
+        else:
+            events.append(evt)
+
+    if not events:
+        _replay_active = False
+        return
+
+    # Save post-state, restore pre-turn state from snapshot if available
+    if snapshot and _game_state:
+        for key in _SNAP_KEYS:
+            if key in snapshot:
+                _gs_set_list(_game_state, key, list(snapshot[key]))
+        if "commerce" in snapshot:
+            if isinstance(_game_state, dict):
+                _game_state["commerce"] = snapshot["commerce"]
+        if "raider" in snapshot:
+            if isinstance(_game_state, dict):
+                _game_state["raider"] = snapshot["raider"]
+
+    # Redraw map at pre-turn positions
+    _map_dirty = True
+    _replay_draw_map()
+
+    # Header
+    header = f"Update for {month_label}" if month_label else "Monthly Events"
+    font.print_text(_ctx, 1, 20, header, 14)
+    prompt = f"Events for {month_label}" if month_label else "Events replay"
+    ui.print_message(_ctx, prompt, 11)
+    await asyncio.sleep(1.5)
+
+    # Process each event
+    for evt in events:
+        if not _replay_active:
+            break
+
+        # Plain string events (misc messages)
+        if isinstance(evt, str):
+            ui.print_message(_ctx, evt[:79], 11)
+            await asyncio.sleep(0.6)
+            continue
+
+        etype = evt.get("type", "")
+
+        # ──────── Army Movement ────────
+        if etype == "move":
+            ui.print_message(_ctx, evt.get("msg", "")[:79], 11)
+            army_id = evt.get("army_id", 0)
+            to_city = evt.get("to", 0)
+            _replay_update_army(army_id, location=to_city, move_target=0)
+            _map_dirty = True
+            _replay_draw_map()
+            await asyncio.sleep(0.4)
+
+        # ──────── Out of Supply ────────
+        elif etype == "no_supply":
+            ui.print_message(_ctx, evt.get("msg", "")[:79], 13)
+            await asyncio.sleep(0.5)
+
+        # ──────── Friendly Meeting ────────
+        elif etype == "meeting":
+            ui.print_message(_ctx, evt.get("msg", "")[:79], 11)
+            city_id = evt.get("city", 0)
+            if city_id:
+                _flash_city(city_id)
+            await asyncio.sleep(0.5)
+
+        # ──────── Attack ────────
+        elif etype == "attack":
+            ui.print_message(_ctx, evt.get("msg", "")[:79], 11)
+            city_id = evt.get("city", 0)
+            if city_id:
+                cx, cy = _replay_get_city_pos(city_id)
+                if cx > 0:
+                    # Draw explosion circles
+                    for r in range(4, 11):
+                        _ctx.beginPath()
+                        _ctx.arc(cx, cy, r, 0, 6.283)
+                        _ctx.fillStyle = VGA[14]
+                        _ctx.fill()
+                    await asyncio.sleep(0.3)
+            await asyncio.sleep(0.3)
+
+        # ──────── Battle ────────
+        elif etype == "battle":
+            # Show battle stats in right panel
+            battle_result = {
+                "location_name": evt.get("city", ""),
+                "attacker_name": evt.get("atk_name", ""),
+                "attacker_strength": evt.get("atk_size", 0),
+                "attacker_losses": evt.get("atk_loss", 0),
+                "defender_name": evt.get("def_name", ""),
+                "defender_strength": evt.get("def_size", 0),
+                "defender_losses": evt.get("def_loss", 0),
+                "winner": evt.get("winner_side", 0),
+                "message": evt.get("msg", ""),
+            }
+            ui.draw_battle_result(_ctx, battle_result)
+            await asyncio.sleep(2.0)
+            ui.clr_rite(_ctx)
+
+            # Apply casualties to replay state
+            atk_id = evt.get("atk_id", 0)
+            def_id = evt.get("def_id", 0)
+            atk_loss = evt.get("atk_loss", 0)
+            def_loss = evt.get("def_loss", 0)
+            if atk_id:
+                armies = _game_state.get("armies", {}) if isinstance(_game_state, dict) else {}
+                atk_army = armies.get(str(atk_id)) or armies.get(atk_id)
+                if atk_army:
+                    old_size = atk_army.get("size", 0) if isinstance(atk_army, dict) else getattr(atk_army, "size", 0)
+                    _replay_update_army(atk_id, size=max(1, old_size - atk_loss))
+            if def_id:
+                armies = _game_state.get("armies", {}) if isinstance(_game_state, dict) else {}
+                def_army = armies.get(str(def_id)) or armies.get(def_id)
+                if def_army:
+                    old_size = def_army.get("size", 0) if isinstance(def_army, dict) else getattr(def_army, "size", 0)
+                    _replay_update_army(def_id, size=max(1, old_size - def_loss))
+
+        # ──────── Attacker Withdraw ────────
+        elif etype == "withdraw":
+            ui.print_message(_ctx, evt.get("msg", "")[:79], 11)
+            army_id = evt.get("army_id", 0)
+            to_city = evt.get("to", 0)
+            _replay_update_army(army_id, location=to_city, move_target=0)
+            _map_dirty = True
+            _replay_draw_map()
+            await asyncio.sleep(0.5)
+
+        # ──────── Defender Retreat ────────
+        elif etype == "retreat":
+            ui.print_message(_ctx, evt.get("msg", "")[:79], 11)
+            army_id = evt.get("army_id", 0)
+            to_city = evt.get("to", 0)
+            _replay_update_army(army_id, location=to_city, move_target=0)
+            _map_dirty = True
+            _replay_draw_map()
+            await asyncio.sleep(0.5)
+
+        # ──────── Arrive (move into city) ────────
+        elif etype == "arrive":
+            army_id = evt.get("army_id", 0)
+            city_id = evt.get("city", 0)
+            _replay_update_army(army_id, location=city_id, move_target=0)
+            _map_dirty = True
+            _replay_draw_map()
+
+        # ──────── Surrender / Crushed ────────
+        elif etype == "surrender":
+            ui.print_message(_ctx, evt.get("msg", "")[:79], 12)
+            aid = evt.get("army_id", 0)
+            if aid:
+                # Remove army from map
+                _replay_update_army(aid, location=0, size=0)
+                _map_dirty = True
+                _replay_draw_map()
+            await asyncio.sleep(1.0)
+
+        # ──────── City Capture ────────
+        elif etype == "capture":
+            ui.print_message(_ctx, evt.get("msg", "")[:79], 11)
+            city_id = evt.get("city_id", 0)
+            side = evt.get("side", 1)
+            if city_id:
+                _replay_update_city_owner(city_id, side)
+                _map_dirty = True
+                _replay_draw_map()
+                _flash_city(city_id)
+            if evt.get("is_capital"):
+                city_name = evt.get("city_name", "")
+                ui.image2(_ctx, f"{city_name} has fallen!", 4)
+                await asyncio.sleep(2.0)
+            else:
+                await asyncio.sleep(1.0)
+
+        # ──────── Commerce Raid ────────
+        elif etype == "raid":
+            color = 15 if evt.get("success") else 12
+            ui.print_message(_ctx, evt.get("msg", "")[:79], color)
+            await asyncio.sleep(1.0)
+
+        # ──────── Fleet Destroyed ────────
+        elif etype == "fleet_destroyed":
+            ui.print_message(_ctx, evt.get("msg", "")[:79], 15)
+            await asyncio.sleep(1.0)
+
+        # ──────── Popup ────────
+        elif etype == "popup":
+            ui.image2(_ctx, evt.get("msg", ""), evt.get("color", 4))
+            await asyncio.sleep(1.5)
+
+        # ──────── Naval ────────
+        elif etype == "naval":
+            ui.image2(_ctx, evt.get("msg", ""), 4)
+            await asyncio.sleep(1.5)
+
+        # ──────── Railroad Depart ────────
+        elif etype == "railroad_depart":
+            ui.print_message(_ctx, evt.get("msg", "")[:79], 11)
+            army_id = evt.get("army_id", 0)
+            _replay_update_army(army_id, location=0)
+            _map_dirty = True
+            _replay_draw_map()
+            await asyncio.sleep(0.8)
+
+        # ──────── Railroad Arrive ────────
+        elif etype == "railroad_arrive":
+            ui.print_message(_ctx, evt.get("msg", "")[:79], 11)
+            army_id = evt.get("army_id", 0)
+            city_id = evt.get("city", 0)
+            _replay_update_army(army_id, location=city_id, move_target=0)
+            _map_dirty = True
+            _replay_draw_map()
+            await asyncio.sleep(1.0)
+
+        # ──────── Unknown ────────
+        else:
+            msg = evt.get("msg", str(evt))
+            ui.print_message(_ctx, msg[:79], 11)
+            await asyncio.sleep(0.6)
+
+    # Restore post-state and redraw
+    _game_state.update(post_state) if isinstance(_game_state, dict) else None
+    _map_dirty = True
+    _replay_active = False
+    _enter_state(GamePhase.MAIN_MENU)
+
+
 def _handle_recruit_select(index: int):
     """Recruit at a city — applies immediately to local game state.
 
@@ -1329,10 +1698,25 @@ async def _submit_turn():
 #  Game state management
 # --------------------------------------------------------------------------- #
 async def _load_game_state():
-    global _game_state, _player_side, _map_dirty
+    global _game_state, _player_side, _map_dirty, _replay_task
 
     try:
         gs = await api_client.get_game_state()
+
+        # Check for event_log — trigger replay before loading final state
+        event_log = _get_val(gs, "event_log", None)
+        if (event_log and _current_state in (GamePhase.LOADING, GamePhase.WAITING)
+                and not _replay_active):
+            # Save final state, then replay will restore it when done
+            _game_state = gs
+            _map_dirty = True
+            _player_side = _get_val(
+                gs, "player_side", api_client.get_player_side())
+            post_state = dict(gs) if isinstance(gs, dict) else gs
+            _replay_task = asyncio.ensure_future(
+                show_event_replay(event_log, post_state))
+            return
+
         _game_state = gs
         _map_dirty = True  # invalidate map cache on state change
         _player_side = _get_val(
@@ -1361,6 +1745,11 @@ def on_key(key: str, event):
 
     # Waiting state: ignore most keys
     if _current_state == GamePhase.WAITING:
+        return
+
+    # Event replay: key presses are consumed (replay advances on its own)
+    if _current_state == GamePhase.EVENT_REPLAY:
+        event.preventDefault()
         return
 
     # Title screen: any key proceeds to loading

@@ -146,6 +146,7 @@ class GamePhase:
     VICTORY = "victory"
     LOADING = "loading"
     FORTIFY = "fortify"
+    EVENT_REPLAY = "event_replay"
 
 
 # --------------------------------------------------------------------------- #

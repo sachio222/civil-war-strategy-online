@@ -252,6 +252,16 @@ def railroad(g: 'GameState', who: int) -> None:
             f"{g.armyname[index]} is taking the train from "
             f"{g.city[from_]} to {g.city[x1]}"
         )
+        if g.player == 3:
+            g.event_log.append({
+                "type": "railroad_depart",
+                "army_id": index,
+                "from_city": g.armyloc[index],
+                "dest_city": x1,
+                "army_name": g.armyname[index],
+                "side": UNION if index <= 20 else CONFEDERATE,
+                "msg": f"{g.armyname[index]} is taking the train from {g.city[from_]} to {g.city[x1]}"
+            })
 
         g.tracks[who] = g.armyloc[index]                    # L54
         from_ = g.armyloc[index]                            # L55
@@ -294,6 +304,16 @@ def railroad(g: 'GameState', who: int) -> None:
             f"Train with {g.armyname[index]} has arrived in "
             f"{g.city[g.armyloc[index]]}"
         )
+        if g.player == 3:
+            g.event_log.append({
+                "type": "railroad_arrive",
+                "army_id": index,
+                "city": g.armyloc[index],
+                "city_name": g.city[g.armyloc[index]],
+                "army_name": g.armyname[index],
+                "side": UNION if index <= 20 else CONFEDERATE,
+                "msg": f"Train with {g.armyname[index]} arrived in {g.city[g.armyloc[index]]}"
+            })
         if g.noise > 0:                                     # L76
             from cws_sound import qb_sound
             qb_sound(1200, 2)
