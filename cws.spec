@@ -46,13 +46,17 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     [],
-    exclude_binaries=True,
     name='CWS Civil War Strategy Online',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -62,21 +66,10 @@ exe = EXE(
     icon='cws.ico',
 )
 
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='CWS Civil War Strategy Online',
-)
-
 # Mac .app bundle
 if sys.platform == 'darwin':
     app = BUNDLE(
-        coll,
+        exe,
         name='CWS Civil War Strategy Online.app',
         icon='cws.ico',
         bundle_identifier='com.cws.civilwarstrategy',

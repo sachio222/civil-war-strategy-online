@@ -43,4 +43,26 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: "dist/CWS Civil War Strategy Online"
+          path: "dist/CWS Civil War Strategy Online*"
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: CWS-Windows
+          path: windows
+
+      - name: Zip Windows build
+        run: cd windows && zip -r "../CWS-Windows-${{ github.ref_name }}.zip" .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "CWS-Windows-${{ github.ref_name }}.zip"
+          generate_release_notes: true
