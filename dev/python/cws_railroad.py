@@ -9,6 +9,8 @@ Contains:
 
 from typing import TYPE_CHECKING
 
+from cws_globals import UNION, CONFEDERATE
+
 if TYPE_CHECKING:
     from cws_globals import GameState
 
@@ -47,7 +49,7 @@ def traincapacity(g: 'GameState', who: int) -> int:
     if g.realism == 0:                                      # L120
         return g.train[who]
     x = 11                                                  # L121
-    if g.side == 2:
+    if g.side == CONFEDERATE:
         x = 23
     limit = g.train[who] + 5 * (g.control[who] - x)        # L122
     x2 = 2 * g.train[who]                                   # L123
@@ -222,9 +224,9 @@ def railroad(g: 'GameState', who: int) -> None:
                 if rx == 0:
                     continue  # puted
 
-                if g.side == 1 and g.cityy[i] < g.cityy[from_]:  # L24
+                if g.side == UNION and g.cityy[i] < g.cityy[from_]:  # L24
                     x1 = i
-                if g.side == 2 and g.cityy[i] > g.cityy[from_]:  # L25
+                if g.side == CONFEDERATE and g.cityy[i] > g.cityy[from_]:  # L25
                     x1 = i
                 if g.fort[i] > 0 and g.occupied[i] == 0:   # L26
                     x1 = i

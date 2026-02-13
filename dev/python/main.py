@@ -1,4 +1,4 @@
-"""main.py - CWS: Civil War Strategy (Python/Pygame Port)
+"""main.py - CWS: Civil War Strategy Online (Python/Pygame Port)
 
 Run:
     cd dev/python
@@ -16,27 +16,57 @@ Debug mode (--debug):
     T       - Trigger turn update
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import pygame
 
-# ── Imports from ported modules ──────────────────────────────────────────
-from cws_globals import GameState
-from cws_screen_pygame import PygameScreen, VGA
+
+def _show_launch_screen(render_surface, display_surface, w, h):
+    """Draw a launch screen immediately so the window isn't blank during load."""
+    render_surface.fill((0, 0, 0))
+
+    # VGA colors
+    cyan = (0x00, 0xAA, 0xAA)
+    yellow = (0xFF, 0xFF, 0x55)
+    dark_gray = (0x55, 0x55, 0x55)
+    blue = (0x00, 0x00, 0xAA)
+    white = (0xFF, 0xFF, 0xFF)
+
+    # Decorative border
+    pygame.draw.rect(render_surface, blue, (140, 160, 360, 160), 0)
+    pygame.draw.rect(render_surface, white, (140, 160, 360, 160), 1)
+
+    # Title text
+    font = pygame.font.SysFont(None, 32)
+    font_sm = pygame.font.SysFont(None, 22)
+
+    title = font.render("CWS: Civil War Strategy Online", True, cyan)
+    loading = font_sm.render("Loading...", True, yellow)
+    version = font_sm.render("v1.7", True, dark_gray)
+
+    render_surface.blit(title, (w // 2 - title.get_width() // 2, 195))
+    render_surface.blit(loading, (w // 2 - loading.get_width() // 2, 245))
+    render_surface.blit(version, (w // 2 - version.get_width() // 2, 280))
+
+    # Scale to display and flip
+    scaled = pygame.transform.scale(render_surface, display_surface.get_size())
+    display_surface.blit(scaled, (0, 0))
+    pygame.display.flip()
 
 
 def main():
     """Launch the game."""
     debug = "--debug" in sys.argv
 
-    pygame.init()
-    pygame.mixer.init(frequency=44100, size=-16, channels=1, buffer=2048)
+    # ── Init display ASAP (no mixer yet — it's slow) ──────────────────
+    pygame.display.init()
+    pygame.font.init()
 
-    # ── Pixel-sharp rendering setup ──────────────────────────────────────
-    # Internal render target: native 640x480 (all game drawing happens here)
+    # ── Pixel-sharp rendering setup ───────────────────────────────────
     NATIVE_W, NATIVE_H = 640, 480
 
-    # Pick a display scale: fit 3x into current monitor, fall back to 2x
     info = pygame.display.Info()
     scale = 3
     if info.current_w < NATIVE_W * 3 or info.current_h < NATIVE_H * 3 + 80:
@@ -46,14 +76,31 @@ def main():
 
     display_surface = pygame.display.set_mode(
         (display_w, display_h), pygame.RESIZABLE)
-    pygame.display.set_caption("CWS: Civil War Strategy")
+    pygame.display.set_caption("CWS: Civil War Strategy Online")
 
-    # Internal 640x480 surface — everything renders here, then gets
-    # nearest-neighbor-scaled up to the display for pixel-sharp output
     render_surface = pygame.Surface((NATIVE_W, NATIVE_H))
+
+    # ── Show launch screen BEFORE any heavy imports/init ──────────────
+    _show_launch_screen(render_surface, display_surface, NATIVE_W, NATIVE_H)
+
+    # ── Now do the heavy lifting (splash is visible) ──────────────────
+    pygame.init()
+    pygame.mixer.init(frequency=44100, size=-16, channels=1, buffer=2048)
+
+    # Set window icon
+    from cws_paths import data_path
+    try:
+        icon_path = data_path("cws.ico")
+        icon = pygame.image.load(icon_path)
+        pygame.display.set_icon(icon)
+    except Exception:
+        pass
 
     from cws_sound import init_sound
     init_sound()
+
+    from cws_screen_pygame import PygameScreen
+    from cws_globals import GameState
 
     screen = PygameScreen(render_surface, display=display_surface)
     g = GameState(screen=screen)
@@ -75,7 +122,7 @@ def _run_game(g: GameState) -> None:
     """Run the full ported game."""
     from cws_main import game_loop
 
-    print("Starting CWS: Civil War Strategy...")
+    print("Starting CWS: Civil War Strategy Online...")
     try:
         game_loop(g)
     except Exception as e:
@@ -118,7 +165,7 @@ def _show_status(g: GameState) -> None:
 
     s.color(14)
     s.locate(5, 15)
-    s.print_text("CWS: Civil War Strategy - Python Port Status")
+    s.print_text("CWS: Civil War Strategy Online - Port Status")
     s.locate(6, 15)
     s.print_text("=" * 46)
 
@@ -165,7 +212,7 @@ def _draw_game(g: GameState) -> None:
         g.screen.color(14)
         g.screen.locate(1, 2)
         g.screen.print_text(
-            f"CWS: Civil War Strategy  |  {g.month_names[g.month]} {g.year}")
+            f"CWS: Civil War Strategy Online  |  {g.month_names[g.month]} {g.year}")
 
     try:
         for k in range(1, 3):
@@ -191,9 +238,8 @@ def _run_debug(g: GameState) -> None:
         print(f"  Loaded {sum(1 for i in range(1,41) if g.city[i])} cities")
     except Exception as e:
         print(f"  ERROR loading cities: {e}")
-        print(
-            f"  Make sure data files exist in: "
-            f"{os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))}")
+        from cws_paths import data_dir
+        print(f"  Make sure data files exist in: {data_dir()}")
         sys.exit(1)
 
     print("Loading initial game data...")
@@ -211,9 +257,9 @@ def _run_debug(g: GameState) -> None:
         print("  Continuing with partial data...")
 
     if not g.force[1]:
-        g.force[1] = "Confederate"
+        g.force[1] = "Union"
     if not g.force[2]:
-        g.force[2] = "Union"
+        g.force[2] = "Rebel"
     if not g.month_names[1]:
         g.month_names = [""] + [
             "January", "February", "March", "April", "May", "June",

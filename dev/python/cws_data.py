@@ -23,23 +23,11 @@ import csv
 import os
 from typing import TYPE_CHECKING
 
+from cws_globals import UNION, CONFEDERATE
+from cws_paths import data_path as _data_path, save_path, save_path_write
+
 if TYPE_CHECKING:
     from cws_globals import GameState
-
-# Data files live in the QB64 game directory (two levels up from dev/python/)
-_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..")
-
-
-def _data_path(filename: str) -> str:
-    """Resolve path to a data file, case-insensitive."""
-    path = os.path.join(_DATA_DIR, filename)
-    if os.path.exists(path):
-        return path
-    target = filename.upper()
-    for f in os.listdir(_DATA_DIR):
-        if f.upper() == target:
-            return os.path.join(_DATA_DIR, f)
-    return path
 
 
 class _QBStream:
@@ -244,7 +232,7 @@ def _filer_case2(g: 'GameState') -> None:
     sav_files = []
     for k in range(1, 10):
         t = f"cws{k}.sav"
-        if os.path.exists(_data_path(t)):
+        if os.path.exists(save_path(t)):
             sav_files.append(k)
 
     if not sav_files:                                                # L36
@@ -256,7 +244,7 @@ def _filer_case2(g: 'GameState') -> None:
     g.size = 0
     for k in range(1, 10):                                           # L39-44
         t = f"cws{k}.sav"
-        if os.path.exists(_data_path(t)):
+        if os.path.exists(save_path(t)):
             g.size += 1
             g.mtx[g.size] = t
             g.array[g.size] = k
@@ -271,7 +259,7 @@ def _filer_case2(g: 'GameState') -> None:
         return
 
     # Load the selected save file                                    # L50
-    sav_path = _data_path(f"cws{g.array[g.choose]}.sav")
+    sav_path = save_path(f"cws{g.array[g.choose]}.sav")
     s = _QBStream(sav_path)
 
     g.screen.color(11)                                               # L51
@@ -297,9 +285,9 @@ def _filer_case2(g: 'GameState') -> None:
             if g.armyname[i] == g.lname[i]:                          # L55
                 g.lname[i] = ""                                      # L56
             else:                                                    # L57
-                who = 1                                              # L58
+                who = UNION                                          # L58
                 if i > 20:
-                    who = 2
+                    who = CONFEDERATE
                 star, fin = starfin(g, who)                          # L59
                 for k in range(star, fin + 1):                       # L60-62
                     if g.armyname[i] == g.lname[k]:
@@ -353,7 +341,7 @@ def _filer_case3(g: 'GameState') -> None:
     g.mtx[0] = "Save Game"
     for k in range(1, 10):                                           # L85-88
         g.mtx[k] = f"cws{k}.sav"
-        if os.path.exists(_data_path(g.mtx[k])):
+        if os.path.exists(save_path(g.mtx[k])):
             g.mtx[k] = g.mtx[k] + " +"
 
     g.tlx = 67                                                       # L89
@@ -368,7 +356,7 @@ def _filer_case3(g: 'GameState') -> None:
     g.screen.print_text("Saving")
 
     # Write save file                                                # L94-102
-    sav_path = os.path.join(_DATA_DIR, f"cws{g.choose}.sav")
+    sav_path = save_path_write(f"cws{g.choose}.sav")
     w = _QBWriter(sav_path)
 
     w.write(g.month, g.year, g.usadv, g.side)                       # L95
@@ -391,8 +379,8 @@ def _filer_case3(g: 'GameState') -> None:
 
     # Save config                                                    # L104-108
     myside = g.side                                                  # L104
-    if myside < 1 or myside > 2:                                     # L105
-        myside = 1
+    if myside not in (UNION, CONFEDERATE):                            # L105
+        myside = UNION
     _save_cfg(g, myside)
 
     g.screen.cls()                                                   # L109
@@ -405,7 +393,7 @@ def _load_cfg(g: 'GameState') -> None:
     Original: lines 31-33 and 73-75 of cws_data.bm
     """
     try:
-        s = _QBStream(_data_path("cws.cfg"))
+        s = _QBStream(save_path("cws.cfg"))
         g.side = s.read_int()                                        # L32
         g.graf = s.read_int()
         g.noise = s.read_int()
@@ -425,7 +413,7 @@ def _load_cfg(g: 'GameState') -> None:
         g.bold = s.read_int()
     except FileNotFoundError:
         # Defaults if no config file
-        g.side = 1
+        g.side = UNION
         g.graf = 1              # 1 = ROADS shown by default
         g.difficult = 3
         g.player = 1
@@ -437,7 +425,7 @@ def _save_cfg(g: 'GameState', myside: int) -> None:
 
     Original: lines 106-108 of cws_data.bm
     """
-    cfg_path = os.path.join(_DATA_DIR, "cws.cfg")
+    cfg_path = save_path_write("cws.cfg")
     w = _QBWriter(cfg_path)
     w.write(myside, g.graf, g.noise, g.difficult, g.player,         # L107
             g.turbo, g.randbal, g.train[1], g.train[2],

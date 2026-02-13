@@ -17,20 +17,11 @@ import os
 import pygame
 from typing import TYPE_CHECKING
 
+from cws_globals import UNION, CONFEDERATE
+from cws_paths import save_path, save_path_write
+
 if TYPE_CHECKING:
     from cws_globals import GameState
-
-_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..")
-
-
-def _data_path(filename: str) -> str:
-    path = os.path.join(_DATA_DIR, filename)
-    if os.path.exists(path):
-        return path
-    for f in os.listdir(_DATA_DIR):
-        if f.upper() == filename.upper():
-            return os.path.join(_DATA_DIR, f)
-    return path
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -229,7 +220,7 @@ def capitol(g: 'GameState') -> None:
 
     # Flags along the bottom                                         # L86
     for i in range(-565, 51, 50):
-        flags(g, 1, i, 0)
+        flags(g, UNION, i, 0)
 
     if g.noise == 2 and not _skip:                                    # L87
         _skip = qb_play_interruptible("P2f4..e-16d8.f16b-8.o3c16d2o2b-2g4..a16b-8.a16b-8.g16f2d2")
@@ -285,7 +276,7 @@ def maxx(g: 'GameState') -> None:
     # L97-103: Read high scores from file
     # Temporarily borrow city$ and matrix for score storage
     # (original reuses these shared arrays)
-    hiscore_path = _data_path("hiscore.cws")
+    hiscore_path = save_path("hiscore.cws")
     scores_name = [""] * 11   # indices 1..10 (5 per side)
     scores_val = [[0] * 6 for _ in range(3)]  # scores_val[side][1..5]
 
@@ -335,7 +326,7 @@ def maxx(g: 'GameState') -> None:
                 scores_name[5 * (side_s - 1) + j] = scores_name[5 * (side_s - 1) + j - 1]
 
             # Display congratulations                                # L112-115
-            if side_s == 2:
+            if side_s == CONFEDERATE:
                 s.color(4)
             else:
                 s.color(15)
@@ -375,7 +366,8 @@ def maxx(g: 'GameState') -> None:
 
     # L127-132: Save high scores
     try:
-        with open(hiscore_path, "w") as f:
+        hiscore_write = save_path_write("hiscore.cws")
+        with open(hiscore_write, "w") as f:
             for side_s in range(1, 3):                               # L128
                 for i in range(1, 6):                                # L129
                     name = scores_name[5 * (side_s - 1) + i]

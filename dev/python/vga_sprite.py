@@ -16,21 +16,7 @@ import os
 import struct
 import pygame
 from cws_screen_pygame import VGA
-
-# Data files live in the QB64 game directory (two levels up from dev/python/)
-_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..")
-
-
-def _data_path(filename: str) -> str:
-    """Resolve path to a data file, case-insensitive."""
-    path = os.path.join(_DATA_DIR, filename)
-    if os.path.exists(path):
-        return path
-    target = filename.upper()
-    for f in os.listdir(_DATA_DIR):
-        if f.upper() == target:
-            return os.path.join(_DATA_DIR, f)
-    return path
+from cws_paths import data_path as _data_path
 
 
 def load_vga_sprite(filename: str) -> pygame.Surface:

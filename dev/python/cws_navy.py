@@ -16,6 +16,8 @@ Contains:
 import random
 from typing import TYPE_CHECKING
 
+from cws_globals import UNION, CONFEDERATE
+
 if TYPE_CHECKING:
     from cws_globals import GameState
 
@@ -140,8 +142,8 @@ def _nest(g: 'GameState', who: int) -> int:
         if g.cityp[target] == 0:                            # L429: neutral → skip
             continue
 
-        if target == g.navyloc[3 - who]:                    # L431
-            if (g.navysize[who] >= g.navysize[3 - who] and
+        if target == g.navyloc[g.enemy_of(who)]:              # L431
+            if (g.navysize[who] >= g.navysize[g.enemy_of(who)] and
                     random.random() > 0.1):
                 return i
 
@@ -157,7 +159,7 @@ def _nest(g: 'GameState', who: int) -> int:
         choose = best                                       # L441
 
     # Bug preserved: choose = 30 (city index, not array index)
-    if who == 2 and g.navyloc[2] == 30:                     # L444
+    if who == CONFEDERATE and g.navyloc[CONFEDERATE] == 30:  # L444
         if random.random() > 0.5:
             return 30
 
@@ -185,7 +187,7 @@ def _select_port(g: 'GameState', who: int, chx: int, cost: int, a: int) -> str:
         for i in range(1, 41):                              # L117
             if (g.matrix[i][7] == 99 and
                     g.cityp[i] == who and
-                    g.navyloc[3 - who] != i):
+                    g.navyloc[g.enemy_of(who)] != i):
                 g.size += 1
                 g.mtx[g.size] = g.city[i]
                 g.array[g.size] = i
@@ -361,7 +363,7 @@ def _firemore(g: 'GameState', who: int, chx: int, hit: list) -> str:
         else:
             a_ch = "W"
 
-        enemy = 3 - who
+        enemy = g.enemy_of(who)
         if g.fleet[enemy]:
             b_ch = g.fleet[enemy][-1]
         else:
@@ -380,11 +382,13 @@ def _firemore(g: 'GameState', who: int, chx: int, hit: list) -> str:
             if hit[enemy] <= 0:
                 x_pos = 10 + 50 * g.navysize[enemy]        # L365
                 y_pos = 90                                  # L366
-                if who == 1:
+                if who == UNION:
                     y_pos = 190
                 _xout(g, x_pos, y_pos)                      # L367
                 s.locate(17, 5)                             # L368
                 s.print_text(f"{g.force[enemy]} ship SUNK!")
+                if g.player == 3:
+                    g.event_log.append({"type": "naval", "msg": f"{g.force[enemy]} ship SUNK!"})
                 tick(g, g.turbo + 1)
                 _clr_line17(g)
                 barnacle(g, enemy)                          # L369
@@ -393,6 +397,8 @@ def _firemore(g: 'GameState', who: int, chx: int, hit: list) -> str:
                     s.locate(19, 5)                         # L371
                     s.color(12)
                     s.print_text(f"{g.force[enemy]} fleet DEFEATED")
+                    if g.player == 3:
+                        g.event_log.append({"type": "naval", "msg": f"{g.force[enemy]} fleet DEFEATED"})
                     tick(g, g.turbo)                        # L373
                     g.navyloc[enemy] = 0                    # L374
                     g.fleet[enemy] = ""
@@ -414,13 +420,14 @@ def _firemore(g: 'GameState', who: int, chx: int, hit: list) -> str:
             if hit[who] <= 0:
                 x_pos = 10 + 50 * g.navysize[who]          # L384
                 y_pos = 190                                 # L385
-                if who == 1:
+                if who == UNION:
                     y_pos = 90
                 _xout(g, x_pos, y_pos)                      # L386
                 s.locate(17, 5)                             # L387
-                s.print_text(
-                    f"One of the {g.force[who]} ships was SUNK!"
-                )
+                msg = f"One of the {g.force[who]} ships was SUNK!"
+                s.print_text(msg)
+                if g.player == 3:
+                    g.event_log.append({"type": "naval", "msg": msg})
                 tick(g, g.turbo)
                 _clr_line17(g)
                 barnacle(g, who)                            # L388
@@ -428,9 +435,10 @@ def _firemore(g: 'GameState', who: int, chx: int, hit: list) -> str:
                 if g.navysize[who] < 1:                     # L389
                     s.locate(19, 5)                         # L390
                     s.color(12)
-                    s.print_text(
-                        f"Attacking {g.force[who]} fleet has been ELIMINATED !"
-                    )
+                    msg = f"Attacking {g.force[who]} fleet has been ELIMINATED !"
+                    s.print_text(msg)
+                    if g.player == 3:
+                        g.event_log.append({"type": "naval", "msg": msg})
                     tick(g, g.turbo)                        # L392
                     g.navyloc[who] = 0                      # L393
                     g.fleet[who] = ""
@@ -470,7 +478,7 @@ def _sail3(g: 'GameState') -> None:
 def navy(g: 'GameState', who: int, chx: int) -> None:
     """Main naval operations dispatch."""
     from cws_util import tick
-    from cws_ui import menu, clrbot, clrrite
+    from cws_ui import menu, clrbot, clrrite, scribe
     from cws_map import icon, showcity
     from cws_misc import void
     from cws_army import newarmy
@@ -484,7 +492,7 @@ def navy(g: 'GameState', who: int, chx: int) -> None:
         if g.navyloc[who] < 1:                              # L35
             chx = 1                                         # L36
         else:
-            if g.commerce == 3 - who and g.raider > 0:      # L38
+            if g.commerce == g.enemy_of(who) and g.raider > 0:  # L38
                 chx = 4
             if g.grudge > 0:                                # L39
                 chx = 3
@@ -518,7 +526,7 @@ def navy(g: 'GameState', who: int, chx: int) -> None:
 
         g.mtx[2] = "Attack"                                # L55
         if g.navyloc[who] != 99:                            # L56
-            if g.cityp[g.navyloc[who]] != 3 - who:         # L57
+            if g.cityp[g.navyloc[who]] != g.enemy_of(who):  # L57
                 g.mtx[2] = "-"
                 g.choose = 22
         else:                                               # L58-60
@@ -541,7 +549,7 @@ def navy(g: 'GameState', who: int, chx: int) -> None:
         g.size = 4
 
         if g.navyloc[who] != 99:                            # L64-67
-            if (who == 1 and g.navysize[who] > 1 and
+            if (who == UNION and g.navysize[who] > 1 and
                     g.cityp[g.navyloc[who]] == 0):          # L65
                 g.size = 5
                 g.mtx[5] = "Invasion"
@@ -556,7 +564,7 @@ def navy(g: 'GameState', who: int, chx: int) -> None:
                 if chx > 0 and defend < 100:
                     chx = 5
 
-            if (g.realism == 0 and who == 2 and g.navysize[who] > 1 and
+            if (g.realism == 0 and who == CONFEDERATE and g.navysize[who] > 1 and
                     g.cityp[g.navyloc[who]] == 0):          # L66
                 g.size = 5
                 g.mtx[5] = "Invasion"
@@ -678,7 +686,7 @@ def navy(g: 'GameState', who: int, chx: int) -> None:
                 if who == g.side:                            # L152
                     g.nflag = 1
 
-                if g.cityp[g.navyloc[who]] != 3 - who:     # L153
+                if g.cityp[g.navyloc[who]] != g.enemy_of(who):  # L153
                     break  # GOTO ahoy
 
                 clrbot(g)                                   # L154
@@ -719,52 +727,62 @@ def navy(g: 'GameState', who: int, chx: int) -> None:
                             )
                             tick(g, g.turbo)
                             return
-                        if g.navyloc[who] == g.capcity[3 - who]:  # L190
+                        if g.navyloc[who] == g.capcity[g.enemy_of(who)]:  # L190
                             clrbot(g)
                             s.print_text("The CAPITAL steadfastly stands loyal")
                             tick(g, g.turbo)
                             return
+                        was_player = (g.cityp[g.navyloc[who]] == g.side)
                         g.cityp[g.navyloc[who]] = 0         # L191
+                        neutral_msg = f"{g.city[g.navyloc[who]]} is now  NEUTRAL"
                         clrbot(g)                           # L192
-                        s.print_text(f"{g.city[g.navyloc[who]]} is now  NEUTRAL")
+                        s.print_text(neutral_msg)
                         showcity(g)                         # L193
                         g.victory[who] += g.cityv[g.navyloc[who]]  # L194
+                        if was_player:                      # notify player
+                            scribe(g, neutral_msg, 2)
                         return                              # L195
                     else:
                         # Fort defense                      L167
                         if random.random() < 0.7 + 0.03 * (g.navysize[who] - g.fort[target]):
                             # hurt1: (L182)
+                            fort_msg = f"{g.city[target]} fortifications damaged"
                             clrbot(g)                       # L183
-                            s.print_text(f"{g.city[target]} fortifications damaged")
+                            s.print_text(fort_msg)
                             g.fort[target] -= 1             # L184
                             x_c = g.cityx[target]
                             y_c = g.cityy[target]
                             s.line(x_c - 5, y_c - 5, x_c + 5, y_c + 5, 2, "BF")
                             showcity(g)                     # L185
                             tick(g, g.turbo)                # L186
+                            if g.cityp[target] == g.side:   # notify player
+                                scribe(g, fort_msg, 2)
                             return                          # L187
                         else:
                             # Shore battery sinks attacker  L168
                             barnacle(g, who)
                             clrbot(g)                       # L169-170
-                            s.print_text(
-                                f"{g.force[g.cityp[target]]} shore battery sunk an attacking ship! "
-                                f"{g.navysize[who]} ship(s) left!"
-                            )
+                            shore_msg = (f"{g.force[g.cityp[target]]} shore battery sunk an attacking ship! "
+                                         f"{g.navysize[who]} ship(s) left!")
+                            scribe(g, shore_msg, 1)
                             if g.noise > 0:                 # L171
                                 from cws_sound import qb_sound
                                 qb_sound(77, 0.5)
                                 qb_sound(59, 0.5)
                             tick(g, g.turbo)                # L172
+                            if g.cityp[target] == g.side:   # notify player
+                                scribe(g, shore_msg, 2)
 
                             if g.navysize[who] < 1:        # L173
                                 g.navyloc[who] = 0          # L174
                                 g.fleet[who] = ""
                                 _box2(g)
+                                elim_msg = f"{g.force[who]} fleet eliminated"
                                 s.locate(12, 27)            # L175
-                                s.print_text(f"{g.force[who]} fleet eliminated")
+                                s.print_text(elim_msg)
+                                scribe(g, elim_msg, 0)      # log it
                                 tick(g, 9)                  # L176
-                                g.victory[3 - who] += 5     # L177
+                                g.victory[g.enemy_of(who)] += 5  # L177
                                 if who == g.side:           # L178
                                     g.grudge = 0
                                 _sail3(g)                   # L179: GOTO sail3
@@ -798,7 +816,7 @@ def navy(g: 'GameState', who: int, chx: int) -> None:
                         return
                     if g.grudge > 0:                        # L209
                         g.choose = 1
-                        g.array[1] = g.navyloc[3 - who]
+                        g.array[1] = g.navyloc[g.enemy_of(who)]
                     else:
                         # GOSUB nest                        L210
                         g.choose = _nest(g, who)
@@ -894,7 +912,7 @@ def navy(g: 'GameState', who: int, chx: int) -> None:
                     f"{g.force[who]} fleet of {g.navysize[who]} ship(s) is sailing"
                 )
                 s.locate(11, 25)                            # L272
-                s.print_text(f"to RAID {g.force[3 - who]} COMMERCE !")
+                s.print_text(f"to RAID {g.force[g.enemy_of(who)]} COMMERCE !")
 
                 for i in range(1, g.navysize[who] + 1):     # L274-277
                     s.pset(120 + 41 * i, 210, 0)            # L275
@@ -1065,7 +1083,7 @@ def shipicon(g: 'GameState', who: int, flag: int) -> None:
 
 def _jack(s, who: int) -> None:
     """Draw the flag (jack) on a ship icon. Port of GOSUB jack (L513-520)."""
-    if who == 1:                                            # L515-516: Union
+    if who == UNION:                                        # L515-516: Union
         s.draw("C4R7BU1C7L6BU1C1R3C4R3BU1C7L2BL1C1L3")
     else:                                                   # L517-518: Confederate
         s.draw("C4R4U1L4U1R4U1L4C3F4BU4C3G4BD2BR2BU1")

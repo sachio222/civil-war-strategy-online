@@ -30,6 +30,8 @@ Dependencies (other modules that must exist):
 import random
 from typing import TYPE_CHECKING
 
+from cws_globals import UNION, CONFEDERATE
+
 if TYPE_CHECKING:
     from cws_globals import GameState
 
@@ -62,7 +64,7 @@ def _enuf_armies(g: 'GameState', who: int) -> int:
     from cws_util import starfin
 
     # Count enemy total strength                                    # L152
-    e_star, e_fin = starfin(g, 3 - who)
+    e_star, e_fin = starfin(g, g.enemy_of(who))
     y = 0                                                           # L153
     for i in range(e_star, e_fin + 1):                              # L153-155
         if g.armyloc[i] > 0:
@@ -128,8 +130,8 @@ def smarts(g: 'GameState') -> None:
     events(g)                                                       # L2
 
     slush = 0                                                       # L3
-    who = 3 - g.side                                                # L3
-    c = 15 if g.side == 1 else 9                                    # L4
+    who = g.enemy_of()                                               # L3
+    c = 15 if g.side == UNION else 9                                 # L4
 
     # "Confederate/Union Side is making decisions"                  # L5-6
     g.screen.locate(1, 1)
@@ -217,8 +219,8 @@ def smarts(g: 'GameState') -> None:
             # In QB64, bare 'cash' is a separate uninitialized int (=0),
             # so "0 < 222" is always true. Likely meant cash(who).
             # Preserving original behavior:
-            if (who == 1                                            # L42
-                    and g.navysize[1] < 1
+            if (who == UNION                                         # L42
+                    and g.navysize[UNION] < 1
                     and random.random() > 0.5
                     and 0 < 222):               # cash (no index) = 0
                 break   # goto signup
@@ -236,8 +238,8 @@ def smarts(g: 'GameState') -> None:
     goto_isok = False
 
     # L48: Confederate special case -- build navy if none exists
-    if who == 1 and g.navysize[1] < 1 and g.cash[1] > 100:
-        navy(g, 1, 1)
+    if who == UNION and g.navysize[UNION] < 1 and g.cash[UNION] > 100:
+        navy(g, UNION, 1)
         if g.cash[who] < 100:
             goto_isok = True
 
@@ -274,13 +276,13 @@ def smarts(g: 'GameState') -> None:
     goto_movearmy = False
 
     # L59: Special case -- deploy Confederate navy from port 30
-    if (g.side == 2
-            and g.navyloc[1] == 0
-            and g.navysize[1] < 1
-            and g.cityp[30] == 1
-            and g.cash[1] > 100):
-        g.navyloc[1] = 30
-        navy(g, 1, 1)
+    if (g.side == CONFEDERATE
+            and g.navyloc[UNION] == 0
+            and g.navysize[UNION] < 1
+            and g.cityp[30] == UNION
+            and g.cash[UNION] > 100):
+        g.navyloc[UNION] = 30
+        navy(g, UNION, 1)
         goto_movenavy = True
 
     if not goto_movenavy:

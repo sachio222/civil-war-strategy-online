@@ -33,6 +33,9 @@ import os
 import pygame
 from typing import TYPE_CHECKING
 
+from cws_paths import save_path_write
+from cws_globals import UNION, CONFEDERATE
+
 if TYPE_CHECKING:
     from cws_globals import GameState
 
@@ -99,10 +102,18 @@ def scribe(g: 'GameState', text: str, flag: int) -> None:
         from cws_map import image2
         image2(g, text, 4)
 
+    # Capture for online event replay
+    if g.player == 3 and text.strip():
+        if getattr(g, '_skip_scribe_log', False):
+            g._skip_scribe_log = False
+        elif flag == 2:
+            g.event_log.append({"type": "popup", "msg": text.strip(), "color": 4})
+        else:
+            g.event_log.append(text.strip())
+
     if g.history > 0:                                                # L21
         try:
-            his_path = os.path.join(os.path.dirname(__file__),
-                                    "..", "..", "cws.his")
+            his_path = save_path_write("cws.his")
             with open(his_path, "a") as f:                           # L22
                 f.write(text.strip() + "\n")                         # L23-24
         except IOError:
@@ -145,9 +156,7 @@ def topbar(g: 'GameState') -> None:
 
     x = g.victory[1] + g.victory[2]                                  # L40
     y = 0
-    c = 9                                                            # L41
-    if g.side == 2:
-        c = 7
+    c = g.side_color(g.side)                                         # L41
     s.line(580, 15, 580, 35, 15)                                     # L42
     s.line(530, 20, 630, 30, 8 - c, "BF")                           # L43
     if x > 0:                                                        # L44
@@ -169,7 +178,10 @@ def topbar(g: 'GameState') -> None:
             a = "      "
     if g.graf > 0:
         a = a + f" G{g.graf}"
-    a = a + f" {g.player}"
+    if g.player == 3:
+        a = a + " ONLINE"
+    else:
+        a = a + f" {g.player}"
 
     s.color(c)                                                       # L54
     s.locate(26, 68)                                                 # L55
@@ -373,12 +385,12 @@ def menu(g: 'GameState', switch: int) -> int:
             if g.graf > 2 and row > 0:
                 s.line(548, 148, 592, 216, 15, "B")                 # L140
                 a = row                                              # L141
-                if g.side == 1:
+                if g.side == UNION:
                     a = 6 - row
                 face_surfs = getattr(g, 'face_surfaces', {})
                 if a in face_surfs:
                     s.put_image(550, 150, face_surfs[a])             # L147
-                    if g.side == 2:                                   # L148-151
+                    if g.side == CONFEDERATE:                          # L148-151
                         s.paint(560, 160, 8, 0)
                         s.paint(570, 155, 7, 0)
         elif switch == 9:                                            # L154
@@ -600,7 +612,7 @@ def flags(g: 'GameState', who: int, w: int, a: int) -> None:
     if a != 0:                                                       # L252
         y = a
 
-    if who == 1:                                                     # L254: Union flag
+    if who == UNION:                                                  # L254: Union flag
         s.line(x - 17, y - 15, x + 17, y + 7, 4, "BF")             # L255
         for i in range(-13, 10, 5):                                  # L256-258
             s.line(x - 17, y + i, x + 17, y + i - 1, 7, "B")
@@ -613,7 +625,7 @@ def flags(g: 'GameState', who: int, w: int, a: int) -> None:
             for j in range(-14, 0, 4):
                 s.pset(x + i, y + j, 7)
 
-    elif who == 2:                                                   # L264: Confederate flag
+    elif who == CONFEDERATE:                                          # L264: Confederate flag
         s.line(x - 17, y - 15, x + 17, y + 7, 4, "BF")             # L265
         # White X                                                    # L266-267
         s.line(x - 17, y - 13, x + 15, y + 7, 7)

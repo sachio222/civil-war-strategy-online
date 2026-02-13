@@ -20,6 +20,7 @@ QB64 bugs preserved:
 import random
 import pygame
 from typing import TYPE_CHECKING
+from cws_globals import UNION, CONFEDERATE
 
 if TYPE_CHECKING:
     from cws_globals import GameState
@@ -127,9 +128,9 @@ def battle(g: 'GameState', attack: int, defend: int) -> tuple:
         x = 1
 
     # Difficulty adjustment                                 L27-28
-    if attack < 21 and g.side == 2 and g.difficult > 3:   # L27
+    if attack < 21 and g.side == CONFEDERATE and g.difficult > 3:   # L27
         x = x + 2 * g.difficult - 6
-    if attack > 20 and g.side == 1 and g.difficult < 3:   # L28
+    if attack > 20 and g.side == UNION and g.difficult < 3:   # L28
         x = x + 6 - 2 * g.difficult
     s.locate(9, y)                                         # L29
     s.print_text(f"Difclt  {int(x)}")
@@ -202,9 +203,9 @@ def battle(g: 'GameState', attack: int, defend: int) -> tuple:
         x1 = 1
 
     # Difficulty adjustment for defender                    L65-66
-    if defend < 21 and g.side == 2 and g.difficult > 3:   # L65
+    if defend < 21 and g.side == CONFEDERATE and g.difficult > 3:   # L65
         x1 = x1 + 2 * g.difficult - 6
-    if defend > 20 and g.side == 1 and g.difficult < 3:   # L66
+    if defend > 20 and g.side == UNION and g.difficult < 3:   # L66
         x1 = x1 + 6 - 2 * g.difficult
     s.locate(22, y)                                        # L67
     s.print_text(f"Difclt  {int(x1)}")
@@ -302,9 +303,9 @@ def battle(g: 'GameState', attack: int, defend: int) -> tuple:
     s.print_text("in")
     s.locate(5, 69)                                        # L120
     s.print_text(g.city[g.armyloc[defend]])
-    a_side = 1                                             # L121
+    a_side = UNION                                          # L121
     if win > 20:
-        a_side = 2
+        a_side = CONFEDERATE
     flags(g, a_side, 0, 0)                                 # L122
     clrbot(g)
     s.color(11)
@@ -378,11 +379,32 @@ def battle(g: 'GameState', attack: int, defend: int) -> tuple:
     w_name = f"*{g.armyname[win]}" if win == attack else g.armyname[win]
     l_name = f"*{g.armyname[lose]}" if win == defend else g.armyname[lose]
     hist = f"{g.city[g.armyloc[defend]]}: {w_name}{w_str} defeats {l_name}{l_str}"
+
+    # Emit structured battle event for online replay
+    if g.player == 3:
+        g.event_log.append({
+            "type": "battle",
+            "city": g.city[g.armyloc[defend]],
+            "atk_name": g.armyname[attack], "atk_id": attack,
+            "atk_size": g.armysize[attack],
+            "def_name": g.armyname[defend], "def_id": defend,
+            "def_size": g.armysize[defend],
+            "atk_power": int(x), "def_power": int(x1),
+            "odds": a_pct,
+            "winner": "attacker" if win == attack else "defender",
+            "winner_side": UNION if win <= 20 else CONFEDERATE,
+            "atk_loss": killa, "atk_pct": atk_pct,
+            "def_loss": killd, "def_pct": def_pct,
+            "fort": g.fort[g.armyloc[defend]],
+            "msg": f"{g.armyname[win]} defeats {g.armyname[lose]} in {g.city[g.armyloc[defend]]}"
+        })
+        g._skip_scribe_log = True
+
     scribe(g, hist, 0)                                     # L175
 
     # Wait for AI battles                                   L177-179
     if g.player == 1:
-        if (g.side == 1 and attack > 20) or (g.side == 2 and attack < 21):
+        if (g.side == UNION and attack > 20) or (g.side == CONFEDERATE and attack < 21):
             s.color(14)
             clrbot(g)
             s.print_text("hit any key to continue")
@@ -397,15 +419,15 @@ def battle(g: 'GameState', attack: int, defend: int) -> tuple:
 
     # Statistics                                            L185-191
     # BUG: L185 uses 'attack > 2' instead of 'attack > 20'
-    ss = 1                                                 # L185
+    ss = UNION                                              # L185
     if attack > 2:
-        ss = 2
+        ss = CONFEDERATE
     g.casualty[ss] += killa                                # L186
-    g.casualty[3 - ss] += killd                            # L187
+    g.casualty[g.enemy_of(ss)] += killd                    # L187
 
-    ss = 1                                                 # L189
+    ss = UNION                                              # L189
     if win > 20:
-        ss = 2
+        ss = CONFEDERATE
     g.batwon[ss] += 1                                      # L190
     g.victory[ss] += 1                                     # L191
     icon(g, g.armyloc[defend], 0, 8)                       # L192: restore image
@@ -597,10 +619,22 @@ def capture(g: 'GameState', active: int, c: int, s_side: int, flag: int) -> None
 
     scr = g.screen
     g.cityp[c] = s_side                                    # L282
-    clrbot(g)
     a_str = f"{g.armyname[active]} has captured {g.city[c]}"
+
+    # Emit structured capture event for online replay
+    if g.player == 3:
+        g.event_log.append({
+            "type": "capture",
+            "city_id": c,
+            "city_name": g.city[c],
+            "army_name": g.armyname[active],
+            "side": s_side,
+            "msg": a_str
+        })
+        g._skip_scribe_log = True
+
     scr.color(11)                                          # L284
-    scr.print_text(a_str)
+    scribe(g, a_str, 1)
     scr.update()
     if active < 21 and g.noise > 1:                        # L285
         from cws_sound import qb_play
@@ -609,18 +643,20 @@ def capture(g: 'GameState', active: int, c: int, s_side: int, flag: int) -> None
         from cws_sound import qb_play
         qb_play("MNMFT160o2L16geL8ccL16cdefL8ggge")
 
-    if c != g.capcity[3 - s_side]:                         # L287
+    if c != g.capcity[g.enemy_of(s_side)]:                  # L287
         flashcity(g, c)
+        if s_side != g.side:                               # notify player
+            scribe(g, a_str, 2)
 
     g.victory[s_side] += g.cityv[c]                        # L288
 
-    if c == g.capcity[3 - s_side]:                         # L289: CAPITAL captured!
+    if c == g.capcity[g.enemy_of(s_side)]:                  # L289: CAPITAL captured!
         g.victory[s_side] += 100                           # L290
-        g.victory[3 - s_side] -= 100                       # L291
-        cap_str = f"{g.force[3 - s_side]} CAPITAL captured !"
+        g.victory[g.enemy_of(s_side)] -= 100               # L291
+        cap_str = f"{g.force[g.enemy_of(s_side)]} CAPITAL captured !"
         scribe(g, cap_str, 1)                              # L293
-        image2(g, f"{g.city[g.capcity[3 - s_side]]} has fallen!", 4)  # L294
-        g.capcity[3 - s_side] = 0                          # L295
+        image2(g, f"{g.city[g.capcity[g.enemy_of(s_side)]]} has fallen!", 4)  # L294
+        g.capcity[g.enemy_of(s_side)] = 0                  # L295
         flashcity(g, c)                                    # L296
 
     # Fort damage from battle                               L298
@@ -630,6 +666,9 @@ def capture(g: 'GameState', active: int, c: int, s_side: int, flag: int) -> None
         fy = g.cityy[c]
         scr.line(fx - 5, fy - 5, fx + 5, fy + 5, 2, "BF")
         showcity(g)
+        if s_side != g.side:                               # notify player
+            fort_dmg = f"{g.city[c]} fortifications damaged in battle"
+            scribe(g, fort_dmg, 2)
 
     scr.update()
 
@@ -672,7 +711,7 @@ def evaluate(g: 'GameState', index: int) -> int:
     if g.bold > 0:                                         # L311
         best_str = best_str + 20 * g.bold
 
-    star, fin = starfin(g, 3 - g.side)                     # L313
+    star, fin = starfin(g, g.enemy_of())                    # L313
 
     max_j = 6                                              # will be set by loop
     for j in range(1, 7):                                  # L315
@@ -703,7 +742,7 @@ def evaluate(g: 'GameState', index: int) -> int:
         if a == g.capcity[g.side]:                         # L324
             if g.vicflag[5] > 0:
                 y_score += 200
-        if g.cityp[a] != 3 - g.side:                      # L325
+        if g.cityp[a] != g.enemy_of():                     # L325
             y_score += 5 * g.cityv[a] + 10 * g.fort[a]
 
         if g.cityp[a] != g.side:                           # L326: not our city
@@ -758,11 +797,11 @@ def evaluate(g: 'GameState', index: int) -> int:
                                    + 50 * random.random())
 
         # ourn:                                             L357-374
-        if g.cityp[a] == 3 - g.side and c > 0 and g.armymove[c] == 0:  # L358
+        if g.cityp[a] == g.enemy_of() and c > 0 and g.armymove[c] == 0:  # L358
             y_score -= g.armysize[c]
-        if g.side == 1 and g.cityy[a] < g.cityy[from_]:   # L359
+        if g.side == UNION and g.cityy[a] < g.cityy[from_]:   # L359
             y_score += 2
-        if g.side == 2 and g.cityy[a] > g.cityy[from_]:   # L360
+        if g.side == CONFEDERATE and g.cityy[a] > g.cityy[from_]:   # L360
             y_score += 2
 
         # Look-ahead: score adjacent cities (2 hops)       L362-372
@@ -816,7 +855,7 @@ def retreat(g: 'GameState', defend: int) -> int:
 
     # AI armies don't get player retreat choice             L389-391
     if g.player == 1:
-        if (g.side == 1 and defend > 20) or (g.side == 2 and defend < 21):
+        if (g.side == UNION and defend > 20) or (g.side == CONFEDERATE and defend < 21):
             return 0
 
     g.hilite = 13                                          # L393
@@ -826,9 +865,9 @@ def retreat(g: 'GameState', defend: int) -> int:
     g.size = 0
 
     yy = g.armyloc[defend]                                 # L394
-    who = 1                                                # L395
+    who = UNION                                             # L395
     if defend > 20:
-        who = 2
+        who = CONFEDERATE
 
     for k in range(1, 7):                                  # L396-398
         mk = g.matrix[yy][k]
@@ -862,13 +901,13 @@ def surrender(g: 'GameState', who: int) -> None:
     from cws_ui import flags
 
     s = g.screen
-    ss = 1                                                 # L410
+    ss = UNION                                              # L410
     c = 1
     s.color(0)
     w = 514
     if who > 20:
         c = 7
-        ss = 2
+        ss = CONFEDERATE
 
     # Background panels                                     L412-415
     s.line(w + 15, 440, w + 125, 16, 2, "BF")             # L413
@@ -1039,14 +1078,14 @@ def surrender(g: 'GameState', who: int) -> None:
     s.line_to(w + 40, 243, 0)
 
     c2 = 0                                                 # L524
-    if ss == 2:
+    if ss == CONFEDERATE:
         c2 = 15
         s.line(547, 263, 558, 263, 15)
     s.paint(w + 33, 250, c2, 0)                            # L525
     s.paint(w + 42, 264, c2, 0)                            # L526
 
     # Flag                                                  L528
-    flags(g, 3 - ss, 26, 0)
+    flags(g, g.enemy_of(ss), 26, 0)
     if who < 99:                                           # L529
         tick(g, g.turbo)
     s.update()

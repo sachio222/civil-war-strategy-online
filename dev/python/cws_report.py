@@ -8,6 +8,9 @@ Contains:
 import os
 from typing import TYPE_CHECKING
 
+from cws_paths import save_path, save_path_write
+from cws_globals import UNION, CONFEDERATE
+
 if TYPE_CHECKING:
     from cws_globals import GameState
 
@@ -32,25 +35,6 @@ def _wait_key(g: 'GameState') -> None:
         pygame.time.wait(30)
 
 
-def _data_path(filename: str) -> str:
-    """Resolve data file path with case-insensitive lookup."""
-    # Check current directory first
-    if os.path.exists(filename):
-        return filename
-    # Check parent directory (data files often at project root)
-    parent = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
-    candidate = os.path.join(parent, filename)
-    if os.path.exists(candidate):
-        return candidate
-    # Case-insensitive search
-    for d in ['.', parent]:
-        if os.path.isdir(d):
-            for f in os.listdir(d):
-                if f.lower() == filename.lower():
-                    return os.path.join(d, f)
-    return filename
-
-
 # ═══════════════════════════════════════════════════════════════════════════
 #  Army Report                                                 Lines 28-76
 # ═══════════════════════════════════════════════════════════════════════════
@@ -66,7 +50,7 @@ def _army_report(g: 'GameState', who: int) -> None:
     s.cls()                                                 # L33
     s.locate(1, 1)
     c = 9                                                   # L33
-    if who == 2:
+    if who == CONFEDERATE:
         c = 15
     s.color(c)
 
@@ -82,7 +66,7 @@ def _army_report(g: 'GameState', who: int) -> None:
         c = 7
 
     # VP percentage                                         L37-43
-    x_total = g.victory[who] + g.victory[3 - who]          # L37
+    x_total = g.victory[who] + g.victory[g.enemy_of(who)]   # L37
     if x_total == 0:                                        # L38
         pass
     else:
@@ -212,10 +196,10 @@ def _city_report(g: 'GameState') -> None:
     for i in range(1, 21):
         a_ctrl = "neutral"
         c = 4
-        if g.cityp[i] == 1:
+        if g.cityp[i] == UNION:
             c = 9
             a_ctrl = "UNION"
-        elif g.cityp[i] == 2:
+        elif g.cityp[i] == CONFEDERATE:
             c = 7
             a_ctrl = "REBEL"
         s.color(c)
@@ -226,10 +210,10 @@ def _city_report(g: 'GameState') -> None:
     for i in range(21, 41):
         a_ctrl = "neutral"
         c = 4
-        if g.cityp[i] == 1:
+        if g.cityp[i] == UNION:
             c = 9
             a_ctrl = "UNION"
-        elif g.cityp[i] == 2:
+        elif g.cityp[i] == CONFEDERATE:
             c = 7
             a_ctrl = "REBEL"
         s.color(c)
@@ -268,7 +252,7 @@ def _intel_report(g: 'GameState') -> None:
 
     s = g.screen
     c = 9                                                   # L105
-    if g.side == 2:
+    if g.side == CONFEDERATE:
         c = 7
     usa(g)                                                  # L106
     star, fin = starfin(g, g.side)                          # L107
@@ -334,7 +318,7 @@ def _force_summary(g: 'GameState') -> None:
     for k in range(1, 41):                                  # L141
         if summ[k] > 0:                                     # L142
             c = 9                                           # L143
-            if g.cityp[k] == 2:
+            if g.cityp[k] == CONFEDERATE:
                 c = 7
             s.color(c)                                      # L144
             row = int(g.cityy[k] / 16 + 1)                 # L145
@@ -397,7 +381,7 @@ def _battle_report(g: 'GameState', who: int) -> None:
 
     if g.history > 0 and who > 2:
         try:
-            path = _data_path("battsumm")
+            path = save_path_write("battsumm")
             with open(path, 'w') as f:                      # L174
                 f.write(" SIDE      BATTLES WON       LOSSES\n")
                 for k in range(1, 3):                       # L176
@@ -424,7 +408,7 @@ def _recap(g: 'GameState') -> None:
     s.cls()                                                 # L187
     x = 0
 
-    path = _data_path("cws.his")
+    path = save_path("cws.his")
     try:
         with open(path, 'r') as f:                          # L188
             for a_line in f:                                # L189-198
@@ -475,14 +459,14 @@ def report(g: 'GameState', who: int = 0) -> None:
     # Menu                                                  L5-12
     g.mtx[0] = "Information"                                # L5
     g.mtx[1] = f"{g.force[g.side]} Armies"                  # L6
-    g.mtx[2] = f"{g.force[3 - g.side]} Armies"             # L7
+    g.mtx[2] = f"{g.force[g.enemy_of()]} Armies"            # L7
     g.mtx[3] = "Cities"                                     # L8
     g.mtx[4] = "Force Summary"                              # L9
     g.mtx[5] = "Intelligence"                               # L10
     g.mtx[6] = "Battles"                                    # L11
     g.size = 6
 
-    his_path = _data_path("cws.his")                        # L12
+    his_path = save_path("cws.his")                          # L12
     if os.path.exists(his_path):
         g.mtx[7] = "Recap"
         g.size = 7
@@ -498,7 +482,7 @@ def report(g: 'GameState', who: int = 0) -> None:
     if g.choose == 1:                                       # default: own side
         report_who = g.side
     elif g.choose == 2:                                     # L19: enemy side
-        report_who = 3 - g.side
+        report_who = g.enemy_of()
 
     if g.choose == 3:                                       # L20: cityrep
         _city_report(g)

@@ -28,6 +28,9 @@ import random
 from datetime import date
 from typing import TYPE_CHECKING
 
+from cws_paths import save_dir, save_path_write
+from cws_globals import UNION, CONFEDERATE
+
 if TYPE_CHECKING:
     from cws_globals import GameState
 
@@ -39,7 +42,7 @@ if TYPE_CHECKING:
 def _unionplus(g: 'GameState') -> None:
     """GOSUB unionplus (L707-709): calculate Union advantage."""
     g.usadv = 120 * g.difficult                             # L707
-    if g.player == 2:
+    if g.player >= 2:                                       # 2=local 2P, 3=online
         g.usadv = 50 * g.difficult
     if g.realism > 0:                                       # L708
         g.usadv = int(g.usadv * 0.7)
@@ -48,9 +51,7 @@ def _unionplus(g: 'GameState') -> None:
 def _blanken(g: 'GameState') -> None:
     """GOSUB blanken (L711-717): 2-player turn transition screen."""
     s = g.screen
-    c = 1                                                   # L711
-    if g.side == 2:
-        c = 7
+    c = g.side_color(g.side)                                 # L711
     s.cls()                                                 # L712
     s.line(100, 200, 500, 300, c, "BF")
     s.line(100, 200, 500, 300, 8 - c, "B")                 # L713
@@ -62,6 +63,22 @@ def _blanken(g: 'GameState') -> None:
     s.print_text(f"{g.force[g.side]} PLAYER TURN")
     s.update()
     _wait_key(g)                                            # L716
+
+
+def _month_transition(g: 'GameState') -> None:
+    """Full-screen neutral transition before monthly events in 2-player mode."""
+    s = g.screen
+    s.cls()
+    s.line(100, 160, 500, 320, 5, "BF")   # magenta box (neutral color)
+    s.line(100, 160, 500, 320, 13, "B")    # bright magenta border
+    s.color(15)
+    s.locate(13, 22)
+    s.print_text(f"EVENTS FOR {g.month_names[g.month]} {g.year}")
+    s.color(14)
+    s.locate(16, 21)
+    s.print_text("both players watch — press any key")
+    s.update()
+    _wait_key(g)
 
 
 def _wait_key(g: 'GameState') -> None:
@@ -166,20 +183,20 @@ def _newgame_init(g: 'GameState', replay: int) -> None:
             g.fleet[i] = "W" * len(g.fleet[i])
 
     # iron: (L42-53) — post-load setup
-    if g.player < 1 or g.player > 2:                        # L43
+    if g.player < 1 or g.player > 3:                        # L43
         g.player = 1
-    if g.player == 2 or g.side == 0:                        # L44
+    if g.player >= 2 or g.side == 0:                        # L44
         g.side = 1
-    if g.side == 1:                                         # L45
+    if g.side == UNION:                                      # L45
         g.randbal = 7
-    if g.side == 2:                                         # L46
+    if g.side == CONFEDERATE:                               # L46
         g.randbal = 3
     if g.turbo < 1:                                         # L47
         g.turbo = 2.0
-    if g.side == 1 and g.difficult < 3:                     # L48
-        g.cash[2] += 600 - 100 * g.difficult
-    if g.side == 2 and g.difficult > 3:                     # L49
-        g.cash[1] += 100 * g.difficult
+    if g.side == UNION and g.difficult < 3:                  # L48
+        g.cash[CONFEDERATE] += 600 - 100 * g.difficult
+    if g.side == CONFEDERATE and g.difficult > 3:           # L49
+        g.cash[UNION] += 100 * g.difficult
 
     for i in range(1, 3):                                   # L52
         g.income[i] = g.cash[i]
@@ -191,16 +208,18 @@ def _newgame_init(g: 'GameState', replay: int) -> None:
     # Title screen                                          L63-88
     s.cls()                                                 # L63
     s.color(11)                                             # L64
-    s.locate(14, 27)
-    s.print_text("VGA CIVIL WAR STRATEGY GAME")
+    s.locate(14, 26)
+    s.print_text("VGA CIVIL WAR STRATEGY ONLINE")
     s.color(4)                                              # L65
     s.locate(15, 32)
     s.print_text("Registered Edition")
     s.color(14)                                             # L66
-    s.locate(28, 1)
-    s.print_text("    (c) 1998, 2017, 2018, 2024 by W. R. Hutsell and Dave Mackey")
-    s.locate(28, 60)                                        # L67
-    s.print_text("v1.61")
+    s.locate(27, 10)
+    s.print_text("(c) 1998, 2017, 2018, 2024, 2026 by W. R. Hutsell,")
+    s.locate(28, 17)
+    s.print_text("Dave Mackey, and J. Krajewski")
+    s.locate(27, 72)                                        # L67
+    s.print_text("v1.7")
     s.line(190, 170, 440, 260, 1, "B")                     # L68
     s.line(180, 180, 450, 250, 7, "B")                     # L69
     flags(g, 1, -440, 0)                                    # L70
@@ -210,7 +229,7 @@ def _newgame_init(g: 'GameState', replay: int) -> None:
     s.update()
     if replay == 0 and g.noise == 2 and g.choose == 0:     # L71
         from cws_sound import qb_play_interruptible, shen
-        if g.side == 1:                                     # L72: Union
+        if g.side == UNION:                                  # L72: Union
             skip = False
             if not skip:
                 skip = qb_play_interruptible("MST170o1e8o0b8o1e8")           # L74
@@ -249,26 +268,41 @@ def _newgame_init(g: 'GameState', replay: int) -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _title_menu(g: 'GameState') -> str:
-    """Show title menu. Returns 'resume', 'new', or 'quit'."""
+    """Show title menu. Returns 'resume', 'new', 'online', 'online_resume', or 'quit'."""
     from cws_ui import menu
+    from cws_online import session_exists
 
-    if g.player == 2:                                       # L110
+    if g.player >= 2:                                       # L110
         _blanken(g)
 
-    g.mtx[0] = "CIVIL WAR STRATEGY"                        # L111
+    has_online = session_exists()
+
+    g.mtx[0] = "CIVIL WAR STRATEGY ONLINE"                  # L111
     g.mtx[1] = "Resume Saved Game"                          # L112
-    g.mtx[2] = "Start NEW Game"                             # L113
-    g.mtx[3] = "Quit"                                      # L114
+    idx = 1
+    if has_online:
+        idx += 1
+        g.mtx[idx] = "Resume Online Game"
+    idx += 1
+    g.mtx[idx] = "NEW Game"                                 # L113
+    new_idx = idx
+    idx += 1
+    g.mtx[idx] = "Quit"                                    # L114
+    quit_idx = idx
     g.tlx = 33                                              # L115
     g.tly = 20
     g.colour = 5
-    g.size = 3
+    g.size = idx
     g.choose = 23                                           # L116
     menu(g, 0)                                              # L117
 
-    if g.choose == 1:                                       # L118
+    if g.choose == 1:                                       # Resume Saved
         return "resume"
-    if g.choose == 3:                                       # L123
+    if has_online and g.choose == 2:                        # Resume Online
+        return "online_resume"
+    if g.choose == new_idx:                                 # Start NEW Game
+        return "new"
+    if g.choose == quit_idx:                                # Quit
         return "quit"
     return "new"
 
@@ -281,8 +315,7 @@ def _start_new_game(g: 'GameState') -> None:
     if g.history == 1:                                      # L124
         s.cls()                                             # L125
         try:
-            from cws_data import _data_path
-            his_path = _data_path("cws.his")
+            his_path = save_path_write("cws.his")
             # L126: backup old history — skip shell command
             with open(his_path, 'w') as f:                  # L127-129
                 f.write(f"                    [ HISTORY OF GAME BEGUN {date.today()} ]\n")
@@ -325,6 +358,35 @@ def _newmonth(g: 'GameState') -> bool:
     if g.side > 2:                                          # L137
         g.side = 1
 
+    if g.player == 2:
+        _month_transition(g)
+        usa(g)  # redraw map so tupdate has fresh canvas
+
+    if g.player == 3:
+        g.event_log = []
+        g.event_log.append(f"__month__:{g.month_names[g.month]} {g.year}")
+        # Save pre-turn state snapshot for animated replay
+        g.event_log.append({
+            "type": "__snapshot__",
+            "armyloc": list(g.armyloc),
+            "armymove": list(g.armymove),
+            "armysize": list(g.armysize),
+            "armyname": list(g.armyname),
+            "armylead": list(g.armylead),
+            "armyexper": list(g.armyexper),
+            "supply": list(g.supply),
+            "occupied": list(g.occupied),
+            "fort": list(g.fort),
+            "cityp": list(g.cityp),
+            "navyloc": list(g.navyloc),
+            "navysize": list(g.navysize),
+            "fleet": list(g.fleet),
+            "victory": list(g.victory),
+            "capcity": list(g.capcity),
+            "commerce": g.commerce,
+            "raider": g.raider,
+        })
+
     a_str = (f"--------> EVENTS FOR {g.month_names[g.month]}"
              f" {g.year} --------")
     scribe(g, a_str, 0)                                     # L139
@@ -340,8 +402,8 @@ def _newmonth(g: 'GameState') -> bool:
         if g.cash[i] < 0:                                   # L146
             g.cash[i] = 0
 
-    if g.player == 1 and g.side == 2:                       # L148
-        g.income[1] += g.usadv
+    if g.player == 1 and g.side == CONFEDERATE:              # L148
+        g.income[UNION] += g.usadv
 
     for i in range(1, 41):                                  # L150-153
         if g.cityp[i] > 0:                                 # L151
@@ -361,7 +423,7 @@ def _newmonth(g: 'GameState') -> bool:
     g.vptotal = g.income[1] + g.income[2]                   # L159
 
     chosit = 22                                             # L161 (local)
-    if g.player == 2:                                       # L162
+    if g.player >= 2:                                       # L162
         _blanken(g)
         usa(g)
 
@@ -381,16 +443,19 @@ def _newmonth(g: 'GameState') -> bool:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _end_round(g: 'GameState') -> str:
-    """End round: reset flags. Returns 'newmonth' or 'menu0'."""
+    """End round: reset flags. Returns 'newmonth', 'menu0', or 'online_wait'."""
     from cws_map import usa
 
     g.rflag = 0                                             # L235
     g.mflag = 0
     g.nflag = 0
 
+    if g.player == 3:                                       # Online mode
+        return "online_wait"
+
     if g.player == 2:                                       # L236
         g.side += 1
-        if g.side == 2:
+        if g.side == CONFEDERATE:
             _blanken(g)
             usa(g)
             return "menu0"
@@ -436,7 +501,7 @@ def _commands_menu(g: 'GameState') -> None:
         if g.capcity[g.side] == 0 or g.cash[g.side] < 500:
             g.mtx[5] = "-"
         g.mtx[6] = "Detach"                                # L256
-        if g.side == 1:
+        if g.side == UNION:
             g.mtx[6] = "-"
         g.mtx[7] = "Army Drill"                            # L257
         g.mtx[8] = "Relieve"                               # L258
@@ -527,7 +592,7 @@ def _commands_menu(g: 'GameState') -> None:
                 s.print_text("Cannot move capital")
                 return  # GOTO menu0
             g.cash[g.side] -= 500                           # L329
-            g.victory[3 - g.side] += 50                     # L330
+            g.victory[g.enemy_of()] += 50                    # L330
             clrrite(g)                                      # L331
             g.mtx[0] = "Capital"                            # L332
             a_old = g.city[g.capcity[g.side]]               # L333
@@ -547,7 +612,7 @@ def _commands_menu(g: 'GameState') -> None:
             # Falls through to L386 → GOTO optmen
 
         elif g.choose == 6:                                 # Detach (L344)
-            if g.side == 1:                                 # L345
+            if g.side == UNION:                              # L345
                 clrbot(g)
                 s.color(11)
                 s.print_text("Option not available to Union")
@@ -663,11 +728,14 @@ def _utility_menu(g: 'GameState') -> None:
     while True:                                             # utile:
         chosit = 29                                         # L392
         g.mtx[0] = "Utility"                               # L393
-        g.mtx[1] = "Side"                                  # L394
-        # L394 bug: IF player=2 THEN mtx$(2)="" — immediately overwritten
-        if g.player == 2:
+        if g.player == 3:                                    # Online: show but disable
+            g.mtx[1] = "-"
+            g.mtx[2] = "Online"
+        elif g.player == 2:
+            g.mtx[1] = "Side"                              # L394
             g.mtx[2] = "2 Player"                           # L395
         else:
+            g.mtx[1] = "Side"                              # L394
             g.mtx[2] = "1 Player"
         g.mtx[3] = f"Graphics {g.graf}"                    # L396
         g.mtx[4] = "Noise"                                 # L397
@@ -675,7 +743,7 @@ def _utility_menu(g: 'GameState') -> None:
             g.mtx[4] += "*" * g.noise
         g.mtx[5] = f"Display {g.turbo}"                    # L398
         bal = g.difficult                                   # L399
-        if g.side == 1:
+        if g.side == UNION:
             bal = 6 - g.difficult
         g.mtx[6] = f"Balance {bal}"                        # L400
         g.mtx[7] = "End Cond"                              # L401
@@ -706,23 +774,25 @@ def _utility_menu(g: 'GameState') -> None:
         # ── inner SELECT CASE ──                           L416
 
         if g.choose == 1:                                   # Swap Sides (L420)
-            if g.player == 2:                               # L421
+            if g.player >= 2:                               # L421
                 return  # GOTO menu0
-            g.side = 3 - g.side                             # L422
-            s.color(9 if g.side == 1 else 7)
+            g.side = g.enemy_of()                            # L422
+            s.color(g.side_color(g.side))
             clrbot(g)                                       # L423
             s.print_text(f"Now playing {g.force[g.side]} side")
             if g.noise > 0:
                 from cws_sound import qb_sound
                 qb_sound(999, 1)
-            if g.side == 1:                                 # L424
+            if g.side == UNION:                              # L424
                 g.randbal = 7
-            if g.side == 2:                                 # L425
+            if g.side == CONFEDERATE:                        # L425
                 g.randbal = 3
             topbar(g)                                       # L426
             return  # GOTO menu0
 
         elif g.choose == 2:                                 # Solo/2Player (L431)
+            if g.player == 3:                               # Online: can't toggle
+                return  # GOTO menu0
             g.player = 3 - g.player                         # L432
             clrbot(g)
             s.color(12)
@@ -946,7 +1016,7 @@ def _utility_menu(g: 'GameState') -> None:
                 s.print_text("Recruiting FIXED: 7000 for NEW Armies  4500 for Additions")
             else:                                           # L611
                 s.print_text("REALISM ON: Recruiting based on CITY SIZE")
-                if g.side == 2 and g.randbal == 1 and g.randbal < 5:  # L613
+                if g.side == CONFEDERATE and g.randbal == 1 and g.randbal < 5:  # L613
                     g.randbal += 2
                 _unionplus(g)                               # L614
             g.choose = 32                                   # L616
@@ -997,12 +1067,11 @@ def _files_menu(g: 'GameState') -> str:
     s = g.screen
 
     # L655: IF NOT _FILEEXISTS("*.sav") THEN filel = 0
-    # Check for saved game files in data directory
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
+    # Check for saved game files in save directory
     try:
         has_sav = any(
             f.lower().endswith('.sav')
-            for f in os.listdir(data_dir)
+            for f in os.listdir(save_dir())
         )
         if not has_sav:
             g.filel = 0
@@ -1078,7 +1147,7 @@ def _main_menu(g: 'GameState') -> str:
 
     while True:                                             # menu0:
         topbar(g)                                           # L172
-        if g.player == 2 and g.side == 0:                   # L173
+        if g.player >= 2 and g.side == 0:                   # L173
             g.side = 1
         if g.cash[g.side] < 100 and g.navyloc[g.side] == 0:  # L174
             g.nflag = 1
@@ -1146,12 +1215,10 @@ def _main_menu(g: 'GameState') -> str:
                 s.locate(4, 68)
                 s.print_text("RAILROAD MOVE")
                 # L214-218: simplified train icon
-                z = 9                                       # L216
-                if g.side == 2:
-                    z = 7
+                z = g.side_color(g.side)                     # L216
                 s.line(550, 17, 600, 30, z, "BF")
                 s.line(550, 17, 600, 30, 0, "B")
-                s.color(15 if g.side == 2 else 11)          # L219
+                s.color(15 if g.side == CONFEDERATE else 11)  # L219
                 limit = traincapacity(g, g.side)            # L220
                 clrbot(g)                                   # L221
                 s.print_text(f"Railroad capacity ={limit}00")
@@ -1187,6 +1254,8 @@ def _main_menu(g: 'GameState') -> str:
             result = _end_round(g)
             if result == "menu0":
                 continue
+            if result == "online_wait":
+                return "online_wait"
             return "newmonth"                               # L237
 
         elif g.choose == 6:                                 # Inform (L239)
@@ -1216,6 +1285,8 @@ def _main_menu(g: 'GameState') -> str:
             result = _end_round(g)
             if result == "menu0":
                 continue
+            if result == "online_wait":
+                return "online_wait"
             return "newmonth"
 
         else:                                               # CASE ELSE (L684)
@@ -1225,12 +1296,877 @@ def _main_menu(g: 'GameState') -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  Online event replay
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _show_event_replay(g: 'GameState') -> None:
+    """Replay captured events from opponent's turn with full map animations.
+
+    Restores pre-turn state from snapshot, redraws the map, then processes
+    each event with the same graphics functions (animate, cannon, flags,
+    surrender, shipicon, flashcity, image2) that the live player sees.
+    Plain string events scroll on the bottom bar.
+    """
+    import pygame
+    from cws_map import image2, flashcity, showcity, icon, _upbox, usa
+    from cws_ui import clrbot, clrrite, flags
+    from cws_combat import cannon, surrender as surrender_gfx
+    from cws_navy import shipicon
+    from cws_util import animate, tick
+    from cws_army import placearmy
+    from cws_data import occupy
+
+    if not g.event_log:
+        return
+
+    s = g.screen
+    raw_events = list(g.event_log)
+    g.event_log = []
+
+    # ── Parse event log: extract month header, snapshot, and events ──
+    month_label = ""
+    snapshot = None
+    events = []
+    for evt in raw_events:
+        if isinstance(evt, str) and evt.startswith("__month__:"):
+            month_label = evt[len("__month__:"):]
+        elif isinstance(evt, dict) and evt.get("type") == "__snapshot__":
+            snapshot = evt
+        else:
+            events.append(evt)
+
+    if not events:
+        return
+
+    # ── Save post-turn state and restore pre-turn state from snapshot ──
+    _SNAP_KEYS = [
+        "armyloc", "armymove", "armysize", "armyname", "armylead",
+        "armyexper", "supply", "occupied", "fort", "cityp",
+        "navyloc", "navysize", "fleet", "victory", "capcity",
+    ]
+    post_state = {}
+    if snapshot:
+        # Save post-turn state (downloaded from server)
+        for key in _SNAP_KEYS:
+            post_state[key] = list(getattr(g, key))
+        post_state["commerce"] = g.commerce
+        post_state["raider"] = g.raider
+
+        # Restore pre-turn state from snapshot
+        for key in _SNAP_KEYS:
+            src = snapshot[key]
+            dest = getattr(g, key)
+            for i in range(min(len(dest), len(src))):
+                dest[i] = src[i]
+        g.commerce = snapshot["commerce"]
+        g.raider = snapshot["raider"]
+
+        # Redraw map with pre-turn positions
+        s.cls()
+        usa(g)
+
+    # ── Phase 1: "Update for Month, Year" header ──
+    s.color(14)
+    s.locate(1, 1)
+    s.print_text(" " * 80)
+    s.locate(1, 20)
+    if month_label:
+        s.print_text(f"Update for {month_label}")
+    else:
+        s.print_text("Monthly Events")
+    clrbot(g)
+    s.print_text(f"press any key for {month_label} events" if month_label
+                 else "press any key for events")
+    s.update()
+    _wait_key(g)
+
+    # Draw movement lines for all pending moves (like tupdate L122-125)
+    if snapshot:
+        for i in range(1, 41):
+            if g.armyloc[i] > 0 and g.armymove[i] > 0:
+                icon(g, g.armyloc[i], g.armymove[i], 1)
+
+    _upbox(g)
+    s.update()
+
+    # ── Phase 2: replay each event with full animation ──
+    for evt in events:
+
+        # ── Plain string events (misc messages) ──
+        if isinstance(evt, str):
+            clrbot(g)
+            s.color(11)
+            s.print_text(evt[:79])
+            s.update()
+            _timed_pause(640)
+            continue
+
+        etype = evt.get("type", "")
+
+        # ──────────── Army Movement ────────────
+        if etype == "move":
+            army_id = evt["army_id"]
+            from_city = evt["from"]
+            to_city = evt["to"]
+            clrbot(g)
+            s.color(11)
+            s.print_text(evt["msg"][:79])
+            # Set state for animation
+            g.armyloc[army_id] = from_city
+            g.armymove[army_id] = to_city
+            if g.supply[army_id] > 0:
+                g.supply[army_id] -= 1
+            # Animate: draw army, erase movement line, smooth movement
+            placearmy(g, army_id)
+            icon(g, from_city, to_city, 5)    # erase movement line
+            animate(g, army_id, 0)            # smooth forward animation
+            s.update()
+
+        # ──────────── Out of Supply ────────────
+        elif etype == "no_supply":
+            clrbot(g)
+            s.color(11)
+            s.print_text(evt["msg"][:79])
+            s.update()
+            tick(g, g.turbo)
+
+        # ──────────── Friendly Meeting ────────────
+        elif etype == "meeting":
+            target = evt["city"]
+            clrbot(g)
+            s.color(11)
+            s.print_text(evt["msg"][:79])
+            tick(g, g.turbo)
+            icon(g, target, 0, 6)    # meeting flash
+            clrbot(g)
+            s.update()
+
+        # ──────────── Attack (explosion at city) ────────────
+        elif etype == "attack":
+            target = evt["city"]
+            icon(g, target, 0, 3)    # battle explosion
+            clrbot(g)
+            s.color(11)
+            s.print_text(evt["msg"][:79])
+            s.update()
+            _timed_pause(max(0, int(250 * (g.turbo - 1))))
+
+        # ──────────── Battle ────────────
+        elif etype == "battle":
+            y = 68
+            clrrite(g)
+            # Attacker stats
+            s.color(11)
+            s.locate(1, y)
+            s.print_text("Attacker")
+            c = 9 if evt["atk_id"] <= 20 else 7
+            s.color(c)
+            s.locate(2, y)
+            s.print_text(evt["atk_name"])
+            s.locate(3, y)
+            s.print_text(f"{evt['atk_size']}00")
+            s.color(11)
+            s.locate(11, y)
+            s.print_text(f"Attack  {evt['atk_power']}")
+            s.line(530, 155, 635, 175, 11, "B")
+
+            # Defender stats
+            s.locate(13, y)
+            s.print_text("Defender")
+            s.color(16 - c)
+            s.locate(14, y)
+            s.print_text(evt["def_name"])
+            s.locate(15, y)
+            s.print_text(f"{evt['def_size']}00")
+            s.color(11)
+            s.locate(25, y)
+            s.print_text(f"Defend  {evt['def_power']}")
+            s.line(530, 380, 635, 400, 11, "B")
+
+            # Odds
+            s.color(14)
+            s.locate(27, y)
+            s.print_text(f"Odds:  {evt['odds']}%")
+            s.line(530, 412, 635, 435, 14, "B")
+            s.line(528, 410, 637, 437, 14, "B")
+            s.update()
+            _wait_key(g)
+
+            # Cannon explosion animation
+            if g.graf > 2:
+                cannon(g)
+                k = evt.get("fort", 0)
+                fort_surfs = getattr(g, 'fort_surfaces', {})
+                if k in fort_surfs:
+                    s.put_image(550, 270, fort_surfs[k])
+
+            # Victory flag
+            ws = evt["winner_side"]
+            flags(g, ws, 0, 0)
+            side_str = "UNION" if ws == 1 else "REBEL"
+            s.color(14)
+            s.locate(3, 68)
+            s.print_text(f"{side_str} VICTORY")
+            s.locate(4, 71)
+            s.print_text("in")
+            s.locate(5, 69)
+            s.print_text(evt["city"])
+
+            clrbot(g)
+            s.color(11)
+            s.print_text(evt["msg"])
+            s.update()
+            _timed_pause(1500)
+
+            # Casualty line
+            s.color(c)
+            s.locate(1, 1)
+            s.print_text(
+                f"Attack Loss: {evt['atk_loss']}00/{evt['atk_size']}00 ({evt['atk_pct']}%) |"
+            )
+            s.color(16 - c)
+            s.print_text(
+                f"| Defend Loss: {evt['def_loss']}00/{evt['def_size']}00 ({evt['def_pct']}%)"
+            )
+            s.update()
+            _wait_key(g)
+            clrrite(g)
+
+            # Apply casualties to replay state
+            atk_id = evt["atk_id"]
+            def_id = evt["def_id"]
+            g.armysize[atk_id] = max(1, g.armysize[atk_id] - evt["atk_loss"])
+            g.armysize[def_id] = max(1, g.armysize[def_id] - evt["def_loss"])
+            if evt["winner"] == "attacker":
+                if g.armyexper[atk_id] < 10:
+                    g.armyexper[atk_id] += 1
+            else:
+                if g.armyexper[def_id] < 10:
+                    g.armyexper[def_id] += 1
+            if g.graf > 0:
+                _upbox(g)
+
+        # ──────────── Attacker Withdraw ────────────
+        elif etype == "withdraw":
+            army_id = evt["army_id"]
+            from_city = evt["from"]     # battle city
+            to_city = evt["to"]         # retreat destination
+            clrbot(g)
+            s.color(11)
+            s.print_text(evt["msg"][:79])
+            # Animate backward from battle city to retreat destination
+            g.armyloc[army_id] = from_city
+            g.armymove[army_id] = to_city
+            placearmy(g, army_id)
+            animate(g, army_id, 1)      # backward animation
+            g.armyloc[army_id] = to_city
+            g.armymove[army_id] = -2
+            g.occupied[to_city] = army_id
+            placearmy(g, army_id)
+            s.update()
+            _timed_pause(800)
+
+        # ──────────── Defender Retreat ────────────
+        elif etype == "retreat":
+            army_id = evt["army_id"]
+            from_city = evt["from"]     # battle city
+            to_city = evt["to"]         # retreat destination
+            clrbot(g)
+            s.color(11)
+            s.print_text(evt["msg"][:79])
+            g.armyloc[army_id] = from_city
+            g.armymove[army_id] = to_city
+            placearmy(g, army_id)
+            animate(g, army_id, 0)      # forward to retreat city
+            g.armyloc[army_id] = to_city
+            g.occupied[to_city] = army_id
+            placearmy(g, army_id)
+            icon(g, from_city, 0, 6)    # flash at battle city
+            g.armymove[army_id] = -2
+            s.update()
+
+        # ──────────── Arrive (move into city) ────────────
+        elif etype == "arrive":
+            army_id = evt["army_id"]
+            target = evt["city"]
+            g.armyloc[army_id] = target
+            g.armymove[army_id] = -2
+            occupy(g, target)
+            placearmy(g, army_id)
+            s.update()
+
+        # ──────────── Surrender / Crushed ────────────
+        elif etype == "surrender":
+            aid = evt.get("army_id", 0)
+            if g.graf > 2 and aid > 0:
+                surrender_gfx(g, aid)
+                s.color(14)
+                s.locate(3, 68)
+                s.print_text(evt.get("army_name", ""))
+                s.locate(4, 68)
+                s.print_text("surrenders !")
+            clrbot(g)
+            s.color(11)
+            s.print_text(evt["msg"][:79])
+            s.update()
+            _wait_key(g)
+            clrrite(g)
+            # Clear army from replay state
+            if aid > 0:
+                if g.armymove[aid] > 0:
+                    icon(g, g.armyloc[aid], g.armymove[aid], 4)
+                g.armyloc[aid] = 0
+                g.armysize[aid] = 0
+                g.armyname[aid] = ""
+                g.armylead[aid] = 0
+                g.armyexper[aid] = 0
+                g.armymove[aid] = 0
+                g.supply[aid] = 0
+
+        # ──────────── City Capture ────────────
+        elif etype == "capture":
+            cid = evt.get("city_id", 0)
+            side = evt.get("side", 1)
+            if cid > 0:
+                g.cityp[cid] = side
+                showcity(g)
+                flashcity(g, cid)
+            clrbot(g)
+            s.color(11)
+            s.print_text(evt["msg"][:79])
+            s.update()
+            _timed_pause(1200)
+
+        # ──────────── Commerce Raid ────────────
+        elif etype == "raid":
+            clrbot(g)
+            s.color(15)
+            s.print_text(evt["msg"][:79])
+            if evt.get("success"):
+                s.pset(500, 465, 0)
+                shipicon(g, evt.get("side", 1), evt.get("ship_type", 1))
+                s.update()
+                _wait_key(g)
+            else:
+                s.update()
+                _timed_pause(1200)
+
+        # ──────────── Fleet Destroyed ────────────
+        elif etype == "fleet_destroyed":
+            clrbot(g)
+            s.color(15)
+            s.print_text(evt["msg"][:79])
+            s.line(447, 291, 525, 335, 1, "BF")
+            for k in range(1, 6):
+                s.circle(480, 315, 4 * k, 11)
+            s.update()
+            _timed_pause(1500)
+            s.line(447, 291, 525, 335, 1, "BF")
+
+        # ──────────── Popup ────────────
+        elif etype == "popup":
+            image2(g, evt["msg"], evt.get("color", 4))
+
+        # ──────────── Naval ────────────
+        elif etype == "naval":
+            image2(g, evt["msg"], 4)
+
+        # ──────────── Unknown dict ────────────
+        else:
+            msg = evt.get("msg", str(evt))
+            clrbot(g)
+            s.color(11)
+            s.print_text(msg[:79])
+            s.update()
+            _timed_pause(640)
+
+    # ── Restore post-turn state and redraw final map ──
+    if post_state:
+        for key in _SNAP_KEYS:
+            src = post_state[key]
+            dest = getattr(g, key)
+            for i in range(min(len(dest), len(src))):
+                dest[i] = src[i]
+        g.commerce = post_state["commerce"]
+        g.raider = post_state["raider"]
+
+    s.cls()
+    usa(g)
+    clrbot(g)
+    s.update()
+
+
+def _timed_pause(ms: int) -> None:
+    """Pause for *ms* milliseconds; any keypress ends the pause early."""
+    import pygame
+    elapsed = 0
+    while elapsed < ms:
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                raise SystemExit
+            if ev.type == pygame.KEYDOWN:
+                return
+        pygame.time.wait(16)
+        elapsed += 16
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Online multiplayer helpers
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _newgame_submenu(g: 'GameState') -> str:
+    """NEW GAME sub-menu: Solo / Local 2P / Online.
+    Returns 'solo', 'local2p', or 'online'."""
+    from cws_ui import menu
+
+    g.mtx[0] = "NEW GAME"
+    g.mtx[1] = "Solo (vs AI)"
+    g.mtx[2] = "Local 2-Player"
+    g.mtx[3] = "Online"
+    g.tlx = 33
+    g.tly = 20
+    g.colour = 5
+    g.size = 3
+    g.choose = 22
+    menu(g, 0)
+
+    if g.choose == 2:
+        return "local2p"
+    if g.choose == 3:
+        return "online"
+    return "solo"
+
+
+def _text_input(g: 'GameState', prompt: str, default: str = "") -> str:
+    """Simple text input overlay. Returns typed text or default."""
+    import pygame
+    s = g.screen
+    text = ""
+
+    # Draw prompt
+    s.line(100, 200, 540, 270, 1, "BF")
+    s.line(100, 200, 540, 270, 15, "B")
+    s.color(14)
+    s.locate(14, 16)
+    s.print_text(prompt)
+    s.color(15)
+    s.locate(15, 16)
+    if default:
+        s.print_text(f"[{default}] _")
+    else:
+        s.print_text("_")
+    s.update()
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                raise SystemExit
+            if event.type == pygame.VIDEORESIZE:
+                s.update()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    return text if text else default
+                elif event.key == pygame.K_ESCAPE:
+                    return ""
+                elif event.key == pygame.K_BACKSPACE:
+                    if text:
+                        text = text[:-1]
+                        s.locate(15, 16)
+                        s.print_text(text + "_" + "  ")
+                        s.update()
+                elif event.unicode and len(event.unicode) == 1:
+                    if len(text) < 40:
+                        text += event.unicode
+                        s.locate(15, 16)
+                        s.print_text(text + "_")
+                        s.update()
+        pygame.time.wait(16)
+
+
+def _online_setup(g: 'GameState') -> str:
+    """Online setup flow: Create or Join.
+    Returns 'create_ok', 'join_ok', or 'cancel'."""
+    from cws_ui import menu
+    from cws_online import OnlineClient, save_session
+
+    s = g.screen
+
+    # Create / Join menu
+    g.mtx[0] = "ONLINE"
+    g.mtx[1] = "Create Game"
+    g.mtx[2] = "Join Game"
+    g.tlx = 33
+    g.tly = 20
+    g.colour = 5
+    g.size = 2
+    g.choose = 22
+    menu(g, 0)
+
+    if g.choose < 1:
+        return "cancel"
+
+    if g.choose == 1:
+        # ── Create Game ──
+        server = _text_input(g, "Server address?", "localhost:1861")
+        if not server:
+            return "cancel"
+        if not server.startswith("http"):
+            if "localhost" in server or "127.0.0.1" in server:
+                server = "http://" + server
+            else:
+                server = "https://" + server
+
+        # Side selection
+        g.mtx[0] = "Play as"
+        g.mtx[1] = "Union"
+        g.mtx[2] = "Rebel"
+        g.tlx = 33
+        g.tly = 20
+        g.colour = 5
+        g.size = 2
+        g.choose = 22
+        menu(g, 0)
+        if g.choose < 1:
+            return "cancel"
+        chosen_side = g.choose  # Menu: 1=Union, 2=Rebel — matches convention directly
+
+        client = OnlineClient(server)
+        try:
+            result = client.create_game(side=chosen_side)
+        except ConnectionError as e:
+            s.color(12)
+            s.locate(29, 1)
+            s.print_text(f"Connection failed: {e}"[:79])
+            s.update()
+            _wait_key(g)
+            return "cancel"
+
+        code = result["game_code"]
+        g.online_client = client
+        g.my_side = chosen_side
+        assert g.my_side in (UNION, CONFEDERATE), f"Invalid my_side: {g.my_side}"
+        g.player = 3
+        g.side = 1  # Union (side 1) always plays first
+
+        save_session(server, code, client.token, chosen_side)
+
+        # Show waiting screen with game code
+        s.cls()
+        s.line(150, 150, 490, 310, 1, "BF")
+        s.line(150, 150, 490, 310, 15, "B")
+        s.color(14)
+        s.locate(11, 27)
+        s.print_text(f"Game Code: {code}")
+        s.color(11)
+        s.locate(13, 25)
+        s.print_text("Share this code with")
+        s.locate(14, 25)
+        s.print_text("your opponent!")
+        s.color(7)
+        s.locate(16, 25)
+        s.print_text("Waiting for player 2")
+        s.locate(17, 25)
+        s.print_text("to join ...")
+        s.color(8)
+        s.locate(19, 25)
+        s.print_text("ESC = cancel")
+        s.update()
+
+        # Poll until opponent joins
+        import pygame
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    raise SystemExit
+                if event.type == pygame.VIDEORESIZE:
+                    s.update()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return "cancel"
+            try:
+                status = client.game_status()
+                if status["status"] == "active":
+                    return "create_ok"
+            except ConnectionError:
+                pass
+            pygame.time.wait(4000)
+
+    else:
+        # ── Join Game ──
+        server = _text_input(g, "Server address?", "localhost:1861")
+        if not server:
+            return "cancel"
+        if not server.startswith("http"):
+            if "localhost" in server or "127.0.0.1" in server:
+                server = "http://" + server
+            else:
+                server = "https://" + server
+
+        code = _text_input(g, "Game code?")
+        if not code:
+            return "cancel"
+        code = code.upper().strip()
+
+        client = OnlineClient(server)
+        try:
+            result = client.join_game(code)
+        except ConnectionError as e:
+            s.color(12)
+            s.locate(29, 1)
+            s.print_text(f"Failed to join: {e}"[:79])
+            s.update()
+            _wait_key(g)
+            return "cancel"
+
+        g.online_client = client
+        g.my_side = result["side"]
+        assert g.my_side in (UNION, CONFEDERATE), f"Invalid my_side: {g.my_side}"
+        g.player = 3
+        g.side = 1  # Union (side 1) always plays first
+
+        save_session(server, code, client.token, result["side"])
+        return "join_ok"
+
+
+def _online_upload(g: 'GameState') -> bool:
+    """Serialize game state and upload to server. Returns True on success."""
+    from cws_online import state_to_json
+
+    client = g.online_client
+    if not client:
+        return False
+
+    try:
+        status = client.game_status()
+        turn_number = status["turn_number"]
+    except ConnectionError:
+        g.screen.color(12)
+        g.screen.locate(29, 1)
+        g.screen.print_text("Connection error getting turn number")
+        g.screen.update()
+        _wait_key(g)
+        return False
+
+    state = state_to_json(g)
+    try:
+        client.submit_turn(turn_number, state)
+        return True
+    except ConnectionError as e:
+        g.screen.color(12)
+        g.screen.locate(29, 1)
+        g.screen.print_text(f"Upload failed: {e}"[:79])
+        g.screen.update()
+        _wait_key(g)
+        return False
+
+
+def _online_wait(g: 'GameState') -> str:
+    """Polling loop: wait for opponent's turn.
+    Returns 'ready' when opponent has played, 'disconnect' on ESC,
+    or 'finished' if game ended."""
+    import pygame
+    import time
+    from cws_online import state_from_json, save_session
+    from cws_map import usa
+
+    s = g.screen
+    client = g.online_client
+    if not client:
+        return "disconnect"
+
+    # Draw waiting screen
+    other_side = 3 - g.my_side
+    start_time = time.time()
+    events_shown = False  # True once we've shown the events transition
+
+    while True:
+        if not events_shown:
+            box_c = 1 if other_side == 1 else 7
+            s.line(150, 150, 490, 310, box_c, "BF")
+            s.line(150, 150, 490, 310, 15, "B")
+            c = 9 if other_side == 1 else 7
+            s.color(c)
+            s.locate(11, 23)
+            s.print_text(f"{g.force[other_side]} Player Turn")
+            s.color(14)
+            s.locate(13, 27)
+            s.print_text("- Waiting -")
+            s.color(7)
+            s.locate(16, 23)
+            s.print_text("View map while waiting")
+            s.color(8)
+            s.locate(18, 23)
+            s.print_text("ESC = disconnect")
+        else:
+            # Events in progress overlay
+            s.line(150, 150, 490, 310, 5, "BF")
+            s.line(150, 150, 490, 310, 13, "B")
+            s.color(15)
+            s.locate(12, 23)
+            s.print_text("Events in progress...")
+            s.color(8)
+            s.locate(16, 23)
+            s.print_text("ESC = disconnect")
+        s.update()
+
+        # Poll loop with event handling
+        wait_ticks = 0
+        last_elapsed = -1
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    raise SystemExit
+                if event.type == pygame.VIDEORESIZE:
+                    s.update()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return "disconnect"
+                    if event.key == pygame.K_F3:
+                        # Let player redraw map
+                        s.cls()
+                        usa(g)
+                        break  # redraw waiting overlay
+                    if event.key == pygame.K_F8:
+                        from cws_report import report
+                        report(g, -1)
+                        break  # redraw waiting overlay
+
+            # Update elapsed timer display
+            if not events_shown:
+                elapsed = int(time.time() - start_time)
+                if elapsed != last_elapsed:
+                    last_elapsed = elapsed
+                    mins, secs = divmod(elapsed, 60)
+                    s.locate(14, 27)
+                    s.color(8)
+                    s.print_text(f"  {mins}m {secs:02d}s  ")
+                    s.update()
+
+            wait_ticks += 16
+            if wait_ticks >= 4000:
+                # Poll server
+                try:
+                    result = client.poll_turn()
+                    if result["ready"]:
+                        state_data = result["state"]
+                        if state_data:
+                            state_from_json(g, state_data)
+                        if g.event_log:
+                            _show_event_replay(g)
+                        return "ready"
+
+                    # Not ready yet — check if events phase started
+                    if not events_shown and result.get("phase") == "events":
+                        events_shown = True
+                        phase_label = result.get("phase_label", "")
+                        # Show transition screen (magenta box, like local 2P)
+                        s.cls()
+                        usa(g)
+                        s.line(100, 160, 500, 320, 5, "BF")
+                        s.line(100, 160, 500, 320, 13, "B")
+                        s.color(15)
+                        s.locate(13, 22)
+                        if phase_label:
+                            s.print_text(f"EVENTS FOR {phase_label}")
+                        else:
+                            s.print_text("MONTHLY EVENTS")
+                        s.color(14)
+                        s.locate(16, 23)
+                        s.print_text("press any key when ready")
+                        s.update()
+                        _wait_key(g)
+                        break  # redraw overlay (now shows "Events in progress...")
+                except ConnectionError:
+                    pass  # retry next cycle
+                wait_ticks = 0
+
+            pygame.time.wait(16)
+
+
+def _online_resume(g: 'GameState') -> str:
+    """Reconnect from saved session file.
+    Returns 'ready', 'waiting', 'finished', or 'error'."""
+    from cws_online import (load_session, clear_session, OnlineClient,
+                            state_from_json, list_sessions)
+    from cws_ui import menu
+
+    sessions = list_sessions()
+    if not sessions:
+        return "error"
+
+    if len(sessions) == 1:
+        session = sessions[0]
+    else:
+        # Let the player pick which game to resume
+        g.mtx[0] = "Resume Online"
+        for i, sess in enumerate(sessions[:9], 1):
+            side_name = g.force[sess["my_side"]] if 1 <= sess["my_side"] <= 2 else "?"
+            g.mtx[i] = f"{sess['game_code']} ({side_name})"
+        g.size = min(len(sessions), 9)
+        g.tlx = 33
+        g.tly = 18
+        g.colour = 5
+        g.choose = 22
+        menu(g, 0)
+        if g.choose < 1:
+            return "error"
+        session = sessions[g.choose - 1]
+
+    client = OnlineClient(
+        session["server_url"],
+        token=session["token"],
+        game_code=session["game_code"],
+    )
+    g.online_client = client
+    g.my_side = session["my_side"]
+    g.player = 3
+
+    try:
+        status = client.game_status()
+    except ConnectionError as e:
+        g.screen.color(12)
+        g.screen.locate(29, 1)
+        g.screen.print_text(f"Cannot reach server: {e}"[:79])
+        g.screen.update()
+        _wait_key(g)
+        return "error"
+
+    if status["status"] == "finished":
+        clear_session(client.game_code)
+        return "finished"
+
+    if status["status"] == "waiting":
+        # Game still waiting for second player
+        g.screen.color(14)
+        g.screen.locate(29, 1)
+        g.screen.print_text("Waiting for opponent to join...")
+        g.screen.update()
+        return "waiting"
+
+    # Active game — check if it's our turn
+    if status["current_side"] == g.my_side:
+        # Our turn — download latest state
+        try:
+            result = client.poll_turn()
+            if result["ready"] and result["state"]:
+                state_from_json(g, result["state"])
+            if g.event_log:
+                _show_event_replay(g)
+            return "ready"
+        except ConnectionError:
+            return "error"
+    else:
+        return "waiting"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  Top-level game loop
 # ═══════════════════════════════════════════════════════════════════════════
 
 def game_loop(g: 'GameState') -> None:
     """Main entry point: runs the full game."""
     from cws_map import usa
+    from cws_online import save_session, clear_session
 
     replay = 0
 
@@ -1243,16 +2179,67 @@ def game_loop(g: 'GameState') -> None:
         choice = _title_menu(g)
         if choice == "quit":
             return
-        if choice == "resume":
+
+        if choice == "online_resume":
+            # Resume an existing online game
+            resume_result = _online_resume(g)
+            if resume_result == "error" or resume_result == "finished":
+                continue  # restart outer loop (back to title)
+            if resume_result == "waiting":
+                # Enter waiting loop
+                _start_new_game(g)
+                wait_result = _online_wait(g)
+                if wait_result == "disconnect":
+                    continue
+                # ready: state loaded, fall through to main game loop
+            # resume_result == "ready": state already loaded
+
+        elif choice == "resume":
             g.choose = 1
             if g.filel == 0:                                # L669: no save files
                 pass  # skip load, fall through to main menu
             else:
                 _loader(g)
-        else:
-            _start_new_game(g)
+                if g.player == 2:
+                    from cws_ui import menu as _menu
+                    from cws_map import usa as _usa
+                    g.mtx[0] = "Your Side"
+                    g.mtx[1] = "Union"
+                    g.mtx[2] = "Confederate"
+                    g.tlx = 33
+                    g.tly = 20
+                    g.colour = 5
+                    g.size = 2
+                    g.choose = 22
+                    _menu(g, 0)
+                    g.side = 2 if g.choose == 2 else 1
+                    _blanken(g)
+                    _usa(g)
 
-        # ── Main game loop: menu0 ↔ newmonth ──
+        elif choice == "new":
+            # Sub-menu: Solo / Local 2P / Online
+            sub = _newgame_submenu(g)
+            if sub == "solo":
+                g.player = 1
+                _start_new_game(g)
+            elif sub == "local2p":
+                g.player = 2
+                g.side = 1
+                _start_new_game(g)
+            elif sub == "online":
+                online_result = _online_setup(g)
+                if online_result == "cancel":
+                    continue  # restart outer loop (back to title)
+                elif online_result in ("create_ok", "join_ok"):
+                    _start_new_game(g)
+                    # Union (side 1) always goes first; if we're Rebel, wait
+                    if g.my_side != 1:
+                        wait_result = _online_wait(g)
+                        if wait_result == "disconnect":
+                            continue
+                        # State downloaded, proceed to main game loop
+
+        # ── Main game loop: menu0 ↔ newmonth ↔ online_wait ──
         while True:
             result = _main_menu(g)
             if result == "quit":
@@ -1260,8 +2247,41 @@ def game_loop(g: 'GameState') -> None:
             if result == "newgame":
                 break  # restart outer loop
 
+            if result == "online_wait":
+                # Online: upload turn, then wait for opponent
+                _gc = g.online_client.game_code if g.online_client else ""
+                if g.my_side == CONFEDERATE:
+                    # Rebel (my_side=2): signal events, run monthly processing
+                    month_label = f"{g.month_names[g.month]} {g.year}"
+                    try:
+                        g.online_client.signal_phase("events", month_label)
+                    except ConnectionError:
+                        pass  # non-critical, proceed anyway
+                    restarted = _newmonth(g)
+                    if restarted:
+                        clear_session(_gc)
+                        break  # restart outer loop
+                    # After newmonth, it's Union's turn (side 1)
+                    g.side = 1
+                else:
+                    # Union (my_side=1): just upload, Rebel's turn next (side 2)
+                    g.side = 2
+
+                _online_upload(g)
+
+                wait_result = _online_wait(g)
+                if wait_result == "disconnect":
+                    break  # back to title
+                if wait_result == "finished":
+                    clear_session(_gc)
+                    break
+                # ready: state downloaded, loop back to _main_menu
+                continue
+
             # result == "newmonth"
             restarted = _newmonth(g)
             if restarted:                                   # pcode > 0
+                if g.player == 3 and g.online_client:
+                    clear_session(g.online_client.game_code)
                 break  # restart outer loop
             # else: loop back to _main_menu

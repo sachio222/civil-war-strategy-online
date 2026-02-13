@@ -22,6 +22,8 @@ import pygame
 import random
 from typing import TYPE_CHECKING
 
+from cws_globals import UNION, CONFEDERATE
+
 if TYPE_CHECKING:
     from cws_globals import GameState
 
@@ -39,9 +41,9 @@ def flashcity(g: 'GameState', which: int) -> None:
         s.circle(cx, cy, 4, 0)                             # L3
         s.circle(cx, cy, 3, c, fill=True)                  # L4-5
         tick(g, 0.1)                                       # L6
-    c = 9                                                  # L8
-    if g.cityp[which] == 2:
-        c = 7
+    c = 9                                                  # L8: Union blue
+    if g.cityp[which] == CONFEDERATE:
+        c = 7                                              # Confederate gray
     if g.cityp[which] == 0:                                # L9
         c = 12
     s.circle(cx, cy, 4, 0)                                # L10
@@ -191,7 +193,7 @@ def showcity(g: 'GameState') -> None:
     s = g.screen
     for i in range(1, 41):                                 # L90
         c = 9                                              # L91: Union blue
-        if g.cityp[i] == 2:
+        if g.cityp[i] == CONFEDERATE:
             c = 7                                          # Confederate gray
         if g.cityp[i] == 0:                                # L92
             c = 12                                         # Neutral red
@@ -370,24 +372,38 @@ def tupdate(g: 'GameState') -> None:
 
         active_raw = g.brray[j] // 100                     # L166
         active = g.brray[j] - 100 * active_raw
-        s_side = 1                                         # 's' in original
+        s_side = UNION                                      # 's' in original
         if active > 20:
-            s_side = 2
+            s_side = CONFEDERATE
 
         if g.armymove[active] < 1:                         # L167: → digin
             continue
 
+        orig_loc = g.armyloc[active]  # save for withdraw replay
+
         # ── Display move, consume supply ──                 L168-171
         s.color(11)                                        # L168
         clrbot(g)
-        s.print_text(f"{g.armyname[active]} is moving to {g.city[g.armymove[active]]}")
+        msg = f"{g.armyname[active]} is moving to {g.city[g.armymove[active]]}"
+        s.print_text(msg)
+        if g.player == 3:
+            g.event_log.append({
+                "type": "move", "army_id": active,
+                "from": g.armyloc[active], "to": g.armymove[active],
+                "side": s_side, "msg": msg
+            })
 
         g.supply[active] -= 1                              # L170
         if g.supply[active] < 0:
             g.supply[active] = 0
             tick(g, g.turbo)
             clrbot(g)
-            s.print_text(f"{g.armyname[active]} is out of supplies !")
+            msg = f"{g.armyname[active]} is out of supplies !"
+            s.print_text(msg)
+            if g.player == 3:
+                g.event_log.append({
+                    "type": "no_supply", "army_id": active, "msg": msg
+                })
 
         placearmy(g, active)                               # L172
         icon(g, g.armyloc[active], g.armymove[active], 5)  # L173
@@ -401,15 +417,20 @@ def tupdate(g: 'GameState') -> None:
         if g.occupied[target] == 0:                        # L178: → easy
             goto_easy = True
 
-        elif (s_side == 1 and g.occupied[target] < 21) or \
-             (s_side == 2 and g.occupied[target] > 20):    # L179: → friend
+        elif (s_side == UNION and g.occupied[target] < 21) or \
+             (s_side == CONFEDERATE and g.occupied[target] > 20):  # L179: → friend
             # ── friend ──                                   L183-187
             s.color(11)                                    # L184
             clrbot(g)
-            s.print_text(
-                f"{g.armyname[active]} and {g.armyname[g.occupied[target]]} "
-                f"meet in {g.city[target]}"
-            )
+            msg = (f"{g.armyname[active]} and {g.armyname[g.occupied[target]]} "
+                   f"meet in {g.city[target]}")
+            s.print_text(msg)
+            if g.player == 3:
+                g.event_log.append({
+                    "type": "meeting", "army_id": active,
+                    "other_id": g.occupied[target],
+                    "city": target, "msg": msg
+                })
             tick(g, g.turbo)
             icon(g, g.armymove[active], 0, 6)              # L185
             clrbot(g)                                      # L186
@@ -426,10 +447,14 @@ def tupdate(g: 'GameState') -> None:
 
                 s.color(11)                                # L195
                 clrbot(g)
-                s.print_text(
-                    f"{g.armyname[active]} attacks {g.armyname[defend]} "
-                    f"in {g.city[g.armyloc[defend]]}"
-                )
+                msg = (f"{g.armyname[active]} attacks {g.armyname[defend]} "
+                       f"in {g.city[g.armyloc[defend]]}")
+                s.print_text(msg)
+                if g.player == 3:
+                    g.event_log.append({
+                        "type": "attack", "army_id": active,
+                        "defend_id": defend, "city": target, "msg": msg
+                    })
                 tick(g, max(0, g.turbo - 1))
 
                 win = 0
@@ -452,6 +477,17 @@ def tupdate(g: 'GameState') -> None:
                     clrbot(g)                              # L200
                     a_str = (f"{g.armyname[lose]}'s army is crushed in "
                              f"{g.city[g.armyloc[defend]]}")
+                    # Emit structured surrender event for online replay
+                    if g.player == 3:
+                        g.event_log.append({
+                            "type": "surrender",
+                            "army_id": lose,
+                            "army_name": g.armyname[lose],
+                            "winner_name": g.armyname[active],
+                            "city": g.city[g.armyloc[defend]],
+                            "msg": a_str
+                        })
+                        g._skip_scribe_log = True
                     scribe(g, a_str, 2)                    # L202
                     index = lose                           # L203
                     do_crushed = True                      # → crushed
@@ -475,7 +511,7 @@ def tupdate(g: 'GameState') -> None:
                             flee_idx = 0
                             for ii in range(1, 7):         # L237
                                 xx = g.matrix[target][ii]
-                                if xx > 0 and g.cityp[xx] == 3 - s_side and g.cityv[xx] > best:
+                                if xx > 0 and g.cityp[xx] == g.enemy_of(s_side) and g.cityv[xx] > best:
                                     if best == 0:          # L240
                                         flee_idx = ii
                                         best = g.cityv[xx]
@@ -490,6 +526,17 @@ def tupdate(g: 'GameState') -> None:
                                 a_str = (f"{g.armyname[index]} surrenders to "
                                          f"{g.armyname[active]} in "
                                          f"{g.city[g.armyloc[index]]}")
+                                # Emit structured surrender event for online replay
+                                if g.player == 3:
+                                    g.event_log.append({
+                                        "type": "surrender",
+                                        "army_id": index,
+                                        "army_name": g.armyname[index],
+                                        "winner_name": g.armyname[active],
+                                        "city": g.city[g.armyloc[index]],
+                                        "msg": a_str
+                                    })
+                                    g._skip_scribe_log = True
                                 scribe(g, a_str, 2)        # L269
                                 do_crushed = True
                             else:
@@ -502,10 +549,14 @@ def tupdate(g: 'GameState') -> None:
                         g.armyloc[active] = target         # L212
                         s.color(11)                        # L213
                         clrbot(g)
-                        s.print_text(
-                            f"{g.armyname[active]} withdrew to "
-                            f"{g.city[g.armymove[active]]}"
-                        )
+                        msg = (f"{g.armyname[active]} withdrew to "
+                               f"{g.city[g.armymove[active]]}")
+                        s.print_text(msg)
+                        if g.player == 3:
+                            g.event_log.append({
+                                "type": "withdraw", "army_id": active,
+                                "from": target, "to": orig_loc, "msg": msg
+                            })
                         placearmy(g, g.armyloc[active])    # L215
                         animate(g, active, 1)              # L216
 
@@ -533,9 +584,13 @@ def tupdate(g: 'GameState') -> None:
                     g.armyloc[defend] = move2               # L255
                     g.occupied[move2] = defend              # L256
                     clrbot(g)                              # L257
-                    s.print_text(
-                        f"{g.armyname[defend]} is withdrawing to {g.city[move2]}"
-                    )
+                    msg = f"{g.armyname[defend]} is withdrawing to {g.city[move2]}"
+                    s.print_text(msg)
+                    if g.player == 3:
+                        g.event_log.append({
+                            "type": "retreat", "army_id": defend,
+                            "from": target, "to": move2, "msg": msg
+                        })
                     placearmy(g, defend)                    # L260
                     icon(g, target, 0, 6)                  # L262
                     g.armymove[defend] = -2                 # L263
@@ -551,15 +606,15 @@ def tupdate(g: 'GameState') -> None:
                         s.print_text(g.armyname[index])
                         s.locate(4, 68)
                         s.print_text("surrenders !")
-                    xx = 1                                 # L272
+                    xx = UNION                              # L272
                     if index > 20:
-                        xx = 2
+                        xx = CONFEDERATE
                     if g.noise > 1 and xx != g.side:       # L273
                         from cws_sound import qb_play
                         qb_play("MFMST220o3e4g8g2.g8g8g8o4c2")
                     if g.armymove[index] > 0:              # L274
                         icon(g, g.armyloc[index], g.armymove[index], 4)
-                    g.victory[3 - s_side] += 25            # L275
+                    g.victory[g.enemy_of(s_side)] += 25     # L275
                     g.armyloc[index] = 0                   # L276
                     g.lname[index] = ""
                     g.armyname[index] = ""
@@ -603,6 +658,13 @@ def tupdate(g: 'GameState') -> None:
             g.armymove[active] = -2
             occupy(g, g.armyloc[active])                   # L296
             placearmy(g, active)                           # L297
+
+            # Emit arrive event for online replay
+            if g.player == 3:
+                g.event_log.append({
+                    "type": "arrive", "army_id": active,
+                    "city": target, "side": s_side
+                })
 
             # ── City capture check ──                       L301-327
             if g.cityp[g.armyloc[active]] != s_side:       # L301
@@ -671,17 +733,27 @@ def tupdate(g: 'GameState') -> None:
             # Successful raid
             g.raider = int(0.05 * g.navysize[g.commerce]
                            * (1 + random.random())
-                           * g.income[3 - g.commerce])     # L347
+                           * g.income[g.enemy_of(g.commerce)])  # L347
             if g.raider < 1:                               # L348
                 g.raider = 1
-            denom = g.income[3 - g.commerce] if g.income[3 - g.commerce] > 0 else 1
+            denom = g.income[g.enemy_of(g.commerce)] if g.income[g.enemy_of(g.commerce)] > 0 else 1
             if g.raider / denom > 0.3:                     # L349
-                g.raider = int(0.3 * g.income[3 - g.commerce])
+                g.raider = int(0.3 * g.income[g.enemy_of(g.commerce)])
             s.color(15)                                    # L350
-            s.print_text(
-                f"{g.force[g.commerce]} raiders have sunk ${g.raider} "
-                f"of {g.force[3 - g.commerce]} commerce"
-            )
+            msg = (f"{g.force[g.commerce]} raiders have sunk ${g.raider} "
+                   f"of {g.force[g.enemy_of(g.commerce)]} commerce")
+            # Emit structured raid event for online replay
+            if g.player == 3:
+                ship_flag = 1
+                if g.fleet[g.commerce] and g.fleet[g.commerce][0] == "I":
+                    ship_flag = 2
+                g.event_log.append({
+                    "type": "raid", "success": True,
+                    "side": g.commerce, "amount": g.raider,
+                    "ship_type": ship_flag, "msg": msg
+                })
+                g._skip_scribe_log = True
+            scribe(g, msg, 1)
             a = 1                                          # L351
             if g.fleet[g.commerce] and g.fleet[g.commerce][0] == "I":
                 a = 2
@@ -693,16 +765,27 @@ def tupdate(g: 'GameState') -> None:
             if g.commerce == g.side:                        # L354
                 g.grudge = 1
             tick(g, 9)                                     # L355
+            if g.enemy_of(g.commerce) == g.side:            # notify player
+                scribe(g, msg, 2)
             break  # done with commerce
 
         else:
             g.raider = 0                                   # L357
             barnacle(g, g.commerce)                        # L358
             s.color(15)                                    # L359
-            s.print_text(
+            raid_loss_msg = (
                 f"{g.force[g.commerce]} raiders have lost a ship "
-                f"({g.navysize[g.commerce]} remain)"
-            )
+                f"({g.navysize[g.commerce]} remain)")
+            # Emit structured raid-fail event for online replay
+            if g.player == 3:
+                g.event_log.append({
+                    "type": "raid", "success": False,
+                    "side": g.commerce,
+                    "ships_remaining": g.navysize[g.commerce],
+                    "msg": raid_loss_msg
+                })
+                g._skip_scribe_log = True
+            scribe(g, raid_loss_msg, 1)
             if g.noise > 0:                                # L360
                 from cws_sound import qb_sound
                 qb_sound(590, 0.5)
@@ -712,6 +795,16 @@ def tupdate(g: 'GameState') -> None:
                 tick(g, 9)                                 # L362
                 continue                                   # L363: → allthru loop
             else:
+                end_msg = (f"{g.force[g.commerce]} raider fleet destroyed "
+                           f"- commerce raiding has ended")
+                # Emit structured fleet-destroyed event for online replay
+                if g.player == 3:
+                    g.event_log.append({
+                        "type": "fleet_destroyed",
+                        "side": g.commerce, "msg": end_msg
+                    })
+                    g._skip_scribe_log = True
+                scribe(g, end_msg, 1)
                 g.commerce = 0                             # L365
                 s.line(447, 291, 525, 335, 1, "BF")       # L366
                 for k in range(1, 6):                      # L367
@@ -738,7 +831,7 @@ def tupdate(g: 'GameState') -> None:
         g.victory[1] += 50
         if g.control[1] > 34:
             g.victory[1] += 100
-    if g.side == 2 and g.control[1] < 11:                  # L381
+    if g.side == CONFEDERATE and g.control[1] < 11:        # L381
         g.aggress += 0.7
     if g.victory[1] < 1:                                   # L383
         g.victory[1] = 0
@@ -749,7 +842,7 @@ def tupdate(g: 'GameState') -> None:
         if g.control[2] > 34:
             # BUG in original: uses victory(1) not victory(2)
             g.victory[2] = g.victory[1] + 100
-    if g.side == 1 and g.control[2] < 11:                  # L386
+    if g.side == UNION and g.control[2] < 11:               # L386
         g.aggress += 0.7
 
     if g.player == 2:                                      # L387
@@ -1273,7 +1366,14 @@ def usa(g: 'GameState') -> None:
         stax(g, k)
 
     # Show pending move arrows (1-player only)              L802-804
-    if g.player != 2:                                      # L802
+    if g.player == 3:
+        # Online: only show your own side's move arrows
+        from cws_util import starfin
+        star, fin = starfin(g, g.my_side)
+        for i in range(star, fin + 1):
+            if g.armyloc[i] > 0 and g.armymove[i] > 0:
+                icon(g, g.armyloc[i], g.armymove[i], 1)
+    elif g.player != 2:                                    # L802
         for i in range(1, 41):                             # L803
             if g.armyloc[i] > 0 and g.armymove[i] > 0:
                 icon(g, g.armyloc[i], g.armymove[i], 1)

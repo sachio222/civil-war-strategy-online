@@ -1,3 +1,6 @@
 *.EXE
 .idea
 releases/*
+dist/
+build/
+__pycache__/

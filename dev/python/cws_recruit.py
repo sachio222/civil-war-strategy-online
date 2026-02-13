@@ -9,6 +9,8 @@ Contains:
 import random
 from typing import TYPE_CHECKING
 
+from cws_globals import UNION, CONFEDERATE
+
 if TYPE_CHECKING:
     from cws_globals import GameState
 
@@ -20,9 +22,9 @@ def _strong(g: 'GameState', index: int) -> str:
 
 def _playb(g: 'GameState', empty: int) -> None:
     """GOSUB playb (L101-104): difficulty bonus to army size."""
-    if g.side == 1 and g.difficult < 3:                     # L102
+    if g.side == UNION and g.difficult < 3:                  # L102
         g.armysize[empty] += 15 - 5 * g.difficult
-    if g.side == 2 and g.difficult > 3:                     # L103
+    if g.side == CONFEDERATE and g.difficult > 3:           # L103
         g.armysize[empty] += 5 * g.difficult - 15
 
 
@@ -114,7 +116,7 @@ def recruit(g: 'GameState', who: int) -> None:
             if g.occupied[i] > 0 and g.cityp[i] == who:    # L14
                 pct = 0.4
             if random.random() < pct and g.cityp[i] == who:  # L15
-                if g.realism > 0 and g.cityo[i] == 3 - who:  # L16: foe
+                if g.realism > 0 and g.cityo[i] == g.enemy_of(who):  # L16: foe
                     continue
                 g.size += 1                                 # L17
                 g.mtx[g.size] = g.city[i]                   # L18

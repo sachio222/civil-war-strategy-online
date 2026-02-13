@@ -12,6 +12,11 @@ a GameState reference -- no Python globals anywhere.
 from dataclasses import dataclass, field
 from typing import List, Protocol
 
+# ── Side constants ────────────────────────────────────────────────────────────
+UNION = 1
+CONFEDERATE = 2
+SIDE_NAMES = {0: "None", 1: "Union", 2: "Confederate"}
+
 
 # ── VGA 16-color palette (SCREEN 12) ─────────────────────────────────────────
 VGA_PALETTE = {
@@ -148,7 +153,7 @@ class GameState:
     rating:   List[int] = field(default_factory=lambda: _arr(40))
 
     # DIM SHARED force$(2)
-    force:    List[str] = field(default_factory=lambda: ["", "Confederate", "Union"])
+    force:    List[str] = field(default_factory=lambda: ["NEUTRAL", "Union", "Rebel"])
 
     # DIM SHARED armyloc(40) .. armymove(40), occupied(40), fort(40)
     armyloc:  List[int] = field(default_factory=lambda: _arr(40))
@@ -202,3 +207,36 @@ class GameState:
 
     # DIM SHARED Ncap(60)
     ncap:     List[int] = field(default_factory=lambda: _arr(60))
+
+    # ── Online multiplayer ──────────────────────────────────────────────
+    my_side: int = 0               # UNION (1) or CONFEDERATE (2); 0 = not in online mode
+    online_client: object = None   # OnlineClient instance when in online mode
+    event_log: list = field(default_factory=list)  # captured events for online replay
+
+    # ── Side helpers ───────────────────────────────────────────────────────
+    def viewing_side(self) -> int:
+        """Which side the local human player is controlling right now.
+        Solo: same as active side (g.side). Online: always g.my_side."""
+        if self.player == 3:
+            return self.my_side
+        return self.side
+
+    def is_my_turn(self) -> bool:
+        """Can the local player give orders right now?"""
+        if self.player == 1:
+            return True
+        return self.side == (self.my_side if self.player == 3 else self.side)
+
+    def enemy_of(self, s: int = None) -> int:
+        """Return the opposing side. Defaults to opposing the active side."""
+        if s is None:
+            s = self.side
+        return 3 - s
+
+    def side_name(self, s: int) -> str:
+        """Display name for a side number."""
+        return self.force[s] if 1 <= s <= 2 else "Unknown"
+
+    def side_color(self, s: int) -> int:
+        """Primary VGA color for a side (for text/borders)."""
+        return 9 if s == UNION else 7

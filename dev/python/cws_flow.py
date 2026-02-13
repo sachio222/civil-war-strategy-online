@@ -13,6 +13,8 @@ Contains:
 import random
 from typing import TYPE_CHECKING
 
+from cws_globals import UNION, CONFEDERATE
+
 if TYPE_CHECKING:
     from cws_globals import GameState
 
@@ -41,12 +43,12 @@ def iterate(g: 'GameState') -> None:
         g.year += 1
 
     # Supply maintenance                                    L9-31
-    side_s = 1                                              # L9
+    side_s = UNION                                           # L9
     for i in range(1, 41):                                  # L10
         if g.armyloc[i] < 1:                                # rip
             continue
         if i > 20:                                          # L11
-            side_s = 2
+            side_s = CONFEDERATE
 
         # Auto resupply from treasury                       L12-18
         if g.cash[side_s] >= 0.2 * g.armysize[i]:          # L12
@@ -63,10 +65,13 @@ def iterate(g: 'GameState') -> None:
 
         # Naval blockade supply drain                       L20
         if (g.matrix[g.armyloc[i]][7] == 99 and
-                g.navyloc[3 - side_s] == g.armyloc[i]):
+                g.navyloc[g.enemy_of(side_s)] == g.armyloc[i]):
             g.supply[i] -= 1
             clrbot(g)
-            s.print_text(f"{g.armyname[i]} is blockaded")
+            msg = f"{g.armyname[i]} is blockaded"
+            s.print_text(msg)
+            if g.player == 3:
+                g.event_log.append(msg)
             tick(g, g.turbo)
 
         # Out of supplies                                   L21-29
@@ -74,7 +79,10 @@ def iterate(g: 'GameState') -> None:
         if g.supply[i] < 1:                                 # L22
             g.supply[i] = 0                                 # L23
             clrbot(g)                                       # L24
-            s.print_text(f"{g.armyname[i]} is out of supplies")
+            msg = f"{g.armyname[i]} is out of supplies"
+            s.print_text(msg)
+            if g.player == 3:
+                g.event_log.append(msg)
             placearmy(g, i)                                 # L26
             tick(g, g.turbo)                                # L27
             if random.random() > 0.8 and g.armysize[i] > 50:  # L28
@@ -92,13 +100,13 @@ def iterate(g: 'GameState') -> None:
     for i in range(21, 41):
         x += 0.1 * g.armysize[i]
 
-    if g.side == 2 and x > 0:                              # L35
+    if g.side == CONFEDERATE and x > 0:                     # L35
         g.aggress = y / x
     else:
         g.aggress = 1.0
-    if g.side == 1 and y > 0:                              # L36
+    if g.side == UNION and y > 0:                           # L36
         g.aggress = x / y
-    elif g.side == 1:
+    elif g.side == UNION:
         g.aggress = 1.0
 
 
@@ -178,9 +186,7 @@ def engine(g: 'GameState') -> None:
     for i in range(1, 3):                                   # L78
         if g.rr[i] == 0:                                    # L79: notrane
             continue
-        c = 9                                               # L80
-        if i == 2:
-            c = 15
+        c = 9 if i == UNION else 15                         # L80
         bx = 15 if i == 1 else 60
         s.pset(bx, 25, 3)                                   # L80: set cursor
         if i == 2:
@@ -194,7 +200,11 @@ def engine(g: 'GameState') -> None:
         # Destination text                                  L83
         dest = ""
         if g.rr[i] > 0 and g.armymove[g.rr[i]] > 0:
-            dest = g.city[g.armymove[g.rr[i]]][:5]
+            viewer = g.viewing_side()
+            if g.player >= 2 and i != viewer:
+                dest = "?????"
+            else:
+                dest = g.city[g.armymove[g.rr[i]]][:5]
         s.locate(4, 6 * (i - 1) + 2)
         s.print_text(dest)
 
@@ -263,7 +273,7 @@ def events(g: 'GameState') -> None:
         return
 
     plus = g.difficult                                      # L101
-    if g.side == 1:
+    if g.side == UNION:
         plus = 6 - g.difficult
     pct = 0.005 * (g.year - 1860) * plus * plus             # L102
     if pct > 0.9:
@@ -275,16 +285,16 @@ def events(g: 'GameState') -> None:
     s.color(14)
     s.print_text("SPECIAL EVENT...")
 
-    who = 1                                                 # L106
+    who = UNION                                              # L106
     if random.random() > 0.1 * g.randbal:
-        who = 2
+        who = CONFEDERATE
 
-    if who == 1:
-        # ── CASE 1: Confederate events ──                  L112-159
+    if who == UNION:
+        # ── CASE 1: Confederate events (affect Union) ──   L112-159
         if g.year == 1864 and g.month == 1:                 # L113
-            g.victory[2] += 50
+            g.victory[CONFEDERATE] += 50
         if g.year == 1865 and g.month == 1:                 # L114
-            g.victory[2] += 100
+            g.victory[CONFEDERATE] += 100
 
         if random.random() > 0.9:                           # L115
             if _riot(g, who):
@@ -292,34 +302,34 @@ def events(g: 'GameState') -> None:
 
         clrbot(g)                                           # L117
 
-        if random.random() <= 0.2 and g.navysize[2] <= 9:  # L118
+        if random.random() <= 0.2 and g.navysize[CONFEDERATE] <= 9:  # L118
             # English ships for South
             empty = 0
-            if g.navysize[2] > 0 and g.navyloc[2] != 99:   # L119
-                empty = g.navyloc[2]
+            if g.navysize[CONFEDERATE] > 0 and g.navyloc[CONFEDERATE] != 99:   # L119
+                empty = g.navyloc[CONFEDERATE]
             else:
                 for i in range(1, 41):                      # L121
-                    if (g.cityp[i] == 2 and
+                    if (g.cityp[i] == CONFEDERATE and
                             g.matrix[i][7] == 99 and
-                            g.navyloc[1] != i):             # L122
+                            g.navyloc[UNION] != i):         # L122
                         empty = i
                         break
 
             if empty > 0:                                   # L124 → float1/dull1
                 scribe(g, "England has given ships to the South", 2)  # L126
-                g.navysize[2] += 2 * plus                   # L127
-                if g.navysize[2] > 10:                      # L128
-                    g.navysize[2] = 10
-                x = g.navysize[2] - len(g.fleet[2])        # L129
+                g.navysize[CONFEDERATE] += 2 * plus         # L127
+                if g.navysize[CONFEDERATE] > 10:            # L128
+                    g.navysize[CONFEDERATE] = 10
+                x = g.navysize[CONFEDERATE] - len(g.fleet[CONFEDERATE])  # L129
                 if x > 0:
-                    g.fleet[2] += "W" * x                   # L130
-                g.navyloc[2] = empty                        # L131
+                    g.fleet[CONFEDERATE] += "W" * x         # L130
+                g.navyloc[CONFEDERATE] = empty              # L131
                 ships(g)
                 _dull1(g)
                 return
 
         # mercen:                                           L133
-        if random.random() <= 0.1 and g.control[2] >= 30:   # L134
+        if random.random() <= 0.1 and g.control[CONFEDERATE] >= 30:   # L134
             a_name = "French"                               # L135
             if random.random() > 0.5:
                 a_name = "British"
@@ -339,16 +349,16 @@ def events(g: 'GameState') -> None:
                 return
 
         # money:                                            L140
-        if random.random() <= 0.3 and g.control[2] >= 12:   # L141
+        if random.random() <= 0.3 and g.control[CONFEDERATE] >= 12:   # L141
             scribe(g, "The South has obtained a loan from Europe", 2)
-            g.cash[2] += 100 * plus                         # L148: purse
+            g.cash[CONFEDERATE] += 100 * plus               # L148: purse
             _dull1(g)
             return
 
         # cotton:                                           L144
-        if random.random() <= 0.5 and g.control[2] >= 12:   # L145
+        if random.random() <= 0.5 and g.control[CONFEDERATE] >= 12:   # L145
             scribe(g, "Cash from cotton sales fill the Rebel Treasury", 2)
-            g.cash[2] += 100 * plus                         # L148: purse
+            g.cash[CONFEDERATE] += 100 * plus               # L148: purse
             _dull1(g)
             return
 
@@ -366,20 +376,20 @@ def events(g: 'GameState') -> None:
         _dull1(g)
         return
 
-    elif who == 2:
-        # ── CASE 2: Union events ──                        L182-227
-        if (random.random() <= 0.1 and g.navyloc[1] != 0 and
-                g.navysize[1] <= 9):                        # L183
+    elif who == CONFEDERATE:
+        # ── CASE 2: Union events (affect Confederacy) ──   L182-227
+        if (random.random() <= 0.1 and g.navyloc[UNION] != 0 and
+                g.navysize[UNION] <= 9):                    # L183
             if random.random() > 0.95:                      # L184
                 if _riot(g, who):
                     return
             scribe(g, "Union shipworks have produced extra ships", 2)  # L185
-            g.navysize[1] += plus                           # L186
-            if g.navysize[1] > 10:                          # L187
-                g.navysize[1] = 10
-            x = g.navysize[1] - len(g.fleet[1])            # L188
+            g.navysize[UNION] += plus                       # L186
+            if g.navysize[UNION] > 10:                      # L187
+                g.navysize[UNION] = 10
+            x = g.navysize[UNION] - len(g.fleet[UNION])    # L188
             if x > 0:
-                g.fleet[1] += "W" * x                       # L189
+                g.fleet[UNION] += "W" * x                   # L189
             _dull2(g)
             return
 
@@ -400,21 +410,21 @@ def events(g: 'GameState') -> None:
         if g.emancipate == 0 and g.year > 1862:            # L198
             g.emancipate = 1                                # L200
             scribe(g, "Abraham Lincoln announces the Emancipation Proclamation", 2)
-            g.victory[1] += 100                             # L202
-            g.victory[2] -= 100
+            g.victory[UNION] += 100                         # L202
+            g.victory[CONFEDERATE] -= 100
             usa(g)                                          # L203
             _dull2(g)
             return
 
         if g.year == 1864 and g.month == 11:               # L206
             scribe(g, "Lincoln has been reelected", 2)       # L207
-            g.victory[2] = int(0.5 * g.victory[2])          # L208
+            g.victory[CONFEDERATE] = int(0.5 * g.victory[CONFEDERATE])  # L208
             _dull2(g)
             return
 
         if random.random() > 0.5:                           # L211
             scribe(g, "Wealthy Unionists give generously to the Federal Cause", 2)
-            g.cash[1] += 100 * plus                         # L213
+            g.cash[UNION] += 100 * plus                     # L213
             _dull2(g)
             return
 
@@ -432,7 +442,7 @@ def events(g: 'GameState') -> None:
                     g.armyexper[i] += 2
 
         scribe(g, "Secretary of War Stanton predicts the end of the Rebellion", 2)  # L226
-        g.victory[1] += 10                                  # L227
+        g.victory[UNION] += 10                               # L227
         _dull2(g)
         return
 
@@ -507,7 +517,7 @@ def victor(g: 'GameState') -> None:
         a_str = ""
 
         # Annihilation check                                L250
-        if (i == 1 and y == 0) or (i == 2 and x == 0):
+        if (i == UNION and y == 0) or (i == CONFEDERATE and x == 0):
             j = 7
             g.victory[i] += 300
 
@@ -528,17 +538,17 @@ def victor(g: 'GameState') -> None:
 
         # Capital captured                                  L255
         elif (g.vicflag[5] > 0 and
-              g.capcity[3 - i] == 0 and g.capcity[i] > 0):
+              g.capcity[g.enemy_of(i)] == 0 and g.capcity[i] > 0):
             j = 5
 
         # Force ratio                                       L257-266
         elif g.vicflag[6] > 0:
-            if i == 1:
+            if i == UNION:
                 if y == 0:                                  # L259
                     j = 7
                 elif x / y > g.vicflag[6]:                  # L260
                     j = 6
-            if i == 2:
+            if i == CONFEDERATE:
                 if x == 0:                                  # L263
                     j = 7
                 elif y / x > g.vicflag[6]:                  # L264
@@ -562,9 +572,7 @@ def victor(g: 'GameState') -> None:
 
             # Display victory screen                        L302-326
             s.cls()                                         # L302 (CLS)
-            c = 1                                           # L303
-            if i == 2:
-                c = 7
+            c = g.side_color(i)                              # L303
             s.line(0, 0, 639, 479, 4, "BF")                # L304
             s.line(0, 40, 550, 460, 0, "BF")               # L305
             usa(g)                                          # L306
@@ -610,7 +618,7 @@ def victor(g: 'GameState') -> None:
             g.mtx[1] = "Quit this Game"                     # L337
             g.mtx[2] = "Play More"                          # L338
             if g.player == 1:                               # L339
-                g.mtx[2] = f"No - Press Onward to {g.city[g.capcity[3 - g.side]]}"
+                g.mtx[2] = f"No - Press Onward to {g.city[g.capcity[g.enemy_of()]]}"
             g.size = 2                                      # L340
             g.colour = 8
             g.tlx = 27                                      # L341
@@ -649,17 +657,17 @@ def victor(g: 'GameState') -> None:
                 return
 
             t_str = ""
-            if i == 1:                                      # L353
+            if i == UNION:                                  # L353
                 capitol(g)
                 s.color(15)
                 s.locate(2, 27)
-                t_str = f"UNION VICTORY  VP's={g.victory[1]}"
+                t_str = f"UNION VICTORY  VP's={g.victory[UNION]}"
                 s.print_text(t_str)
-            elif i == 2:                                    # L354
+            elif i == CONFEDERATE:                          # L354
                 rwin(g)
                 s.color(15)
                 s.locate(2, 27)
-                t_str = f"REBEL VICTORY  VP's={g.victory[2]}"
+                t_str = f"REBEL VICTORY  VP's={g.victory[CONFEDERATE]}"
                 s.print_text(t_str)
 
             # death:                                        L355-362
@@ -693,9 +701,9 @@ def victor(g: 'GameState') -> None:
 
             if g.vicflag[6] > 0 and x > 0 and y > 0:      # L279
                 ratio_check = False
-                if i == 1 and x / y > 0.9 * g.vicflag[6]:
+                if i == UNION and x / y > 0.9 * g.vicflag[6]:
                     ratio_check = True
-                if i == 2 and y / x > 0.9 * g.vicflag[6]:
+                if i == CONFEDERATE and y / x > 0.9 * g.vicflag[6]:
                     ratio_check = True
                 if ratio_check:                             # L280
                     a_msg = (f"{g.force[i]}side close to"
