@@ -17,9 +17,6 @@ class CreateGameResponse(BaseModel):
     side: int
 
 
-class JoinRequest(BaseModel):
-    pass  # no body needed
-
 
 class JoinResponse(BaseModel):
     token: str

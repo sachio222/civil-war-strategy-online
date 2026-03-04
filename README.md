@@ -3,10 +3,10 @@
 ## Overview
 A strategic level, turn-based one or two player wargame simulating the American Civil War (1861-1865).
 
-![Civil War Strategy Screenshot](dev/cws-screenshot.png)
+![Civil War Strategy Screenshot](reference/docs/cws-screenshot.png)
 
 ## Contributing
-Please see the [CONTRIBUTING.md](dev/CONTRIBUTING.md) file for instructions on how you can contribute improvements and bug fixes for this game.
+Please see the [CONTRIBUTING.md](reference/docs/CONTRIBUTING.md) file for instructions on how you can contribute improvements and bug fixes for this game.
 
 ## Branches
 The `main` branch is the most recent version of the game that seems stable.

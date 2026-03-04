@@ -1,0 +1,263 @@
+"""cws_globals.py - Shared Game State
+Direct port of cws_globals.bi (QB64)
+
+Every COMMON SHARED variable becomes a field on GameState.
+Every DIM SHARED array becomes a list (1-indexed, index 0 unused).
+QB64's DEFINT A-Z means most vars are int; those with ! suffix are float.
+
+This is the ONLY place game state lives. Every module function receives
+a GameState reference -- no Python globals anywhere.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, List, Optional, Protocol
+
+# ── Version ───────────────────────────────────────────────────────────────────
+VERSION = "1.7.4"
+
+# ── Side constants ────────────────────────────────────────────────────────────
+UNION = 1
+CONFEDERATE = 2
+SIDE_NAMES = {0: "None", 1: "Union", 2: "Confederate"}
+
+# ── Game-rule constants ──────────────────────────────────────────────────────
+NUM_CITIES = 40
+NUM_ARMIES = 40
+UNION_ARMY_START = 1
+UNION_ARMY_END = 20
+CONFED_ARMY_START = 21
+CONFED_ARMY_END = 40
+FORT_COST = 200
+
+# ── Screen dimension constants ───────────────────────────────────────────────
+NATIVE_W = 640
+NATIVE_H = 480
+MAP_RIGHT = 528
+
+
+
+class Screen(Protocol):
+    """Abstraction over the rendering target.
+
+    Pygame implementation: renders to a pygame.Surface.
+    Web implementation: sends draw commands over WebSocket to an HTML5 Canvas.
+    Both produce pixel-identical output.
+    """
+
+    def color(self, c: int) -> None: ...
+    def locate(self, row: int, col: int) -> None: ...
+    def print_text(self, text: str) -> None: ...
+    def line(self, x1: int, y1: int, x2: int, y2: int, c: int,
+             style: str = "") -> None: ...
+    def put_image(self, x: int, y: int, sprite: list) -> None: ...
+    def get_image(self, x1: int, y1: int, x2: int, y2: int) -> list: ...
+    def cls(self) -> None: ...
+    def wait_key(self) -> None: ...
+    def input_text(self, row: int, col: int, max_len: int = 20) -> str: ...
+
+
+def _arr(size: int, default=0) -> list:
+    """Create a 1-indexed array (index 0 is padding)."""
+    return [default] * (size + 1)
+
+
+def _arr2d(rows: int, cols: int, default=0) -> list:
+    """Create a 2D 1-indexed array: arr[row][col]."""
+    return [[default] * (cols + 1) for _ in range(rows + 1)]
+
+
+@dataclass
+class GameState:
+    """All COMMON SHARED and DIM SHARED variables from cws_globals.bi.
+
+    QB64 originals shown in comments. Arrays are 1-indexed (index 0 unused).
+    """
+
+    # ── Screen / rendering ────────────────────────────────────────────────
+    screen: Optional[Screen] = None  # injected at startup (Pygame or Web canvas)
+
+    # ── Scalar state ──────────────────────────────────────────────────────
+    # COMMON SHARED choose%, tlx%, tly%, size%, wtype%, colour%, hilite%
+    choose: int = 0
+    tlx: int = 0
+    tly: int = 0
+    size: int = 0
+    wtype: int = 0
+    colour: int = 0
+    hilite: int = 0
+
+    # COMMON SHARED filel, player, side, month, year, mflag
+    filel: int = 1
+    player: int = 1
+    side: int = 1
+    month: int = 0
+    year: int = 1861
+    mflag: int = 0
+
+    # COMMON SHARED bold, aggress!, turbo!, graf, noise, difficult, usadv, bw
+    bold: int = 0
+    aggress: float = 0.0     # aggress! in QB64
+    turbo: float = 2.0       # turbo! in QB64
+    graf: int = 0
+    noise: int = 0
+    difficult: int = 3
+    usadv: int = 0
+    bw: int = 0
+
+    # COMMON SHARED vptotal, ATKFAC, DEFAC, TCR, rflag, nflag
+    vptotal: int = 0
+    atkfac: int = 0
+    defac: int = 0
+    tcr: int = 0
+    rflag: int = 0
+    nflag: int = 0
+
+    # COMMON SHARED pcode, history, thrill, commerce, raider, grudge
+    pcode: int = 0
+    history: int = 0
+    thrill: int = 0
+    commerce: int = 0
+    raider: int = 0
+    grudge: int = 0
+
+    # COMMON SHARED jancam, randbal, realism, emancipate
+    jancam: int = 0
+    randbal: int = 7
+    realism: int = 0
+    emancipate: int = 0
+
+    # ── Arrays (1-indexed) ────────────────────────────────────────────────
+    # DIM SHARED cityx(40), cityy(40), cityv(40), cityp(40), city$(40)
+    cityx:    List[int] = field(default_factory=lambda: _arr(40))
+    cityy:    List[int] = field(default_factory=lambda: _arr(40))
+    cityv:    List[int] = field(default_factory=lambda: _arr(40))
+    cityp:    List[int] = field(default_factory=lambda: _arr(40))
+    city:     List[str] = field(default_factory=lambda: _arr(40, ""))
+
+    # DIM SHARED lname$(40), rcity(5)
+    lname:    List[str] = field(default_factory=lambda: _arr(40, ""))
+    rcity:    List[int] = field(default_factory=lambda: _arr(5))
+
+    # DIM SHARED cash(2), control(2), income(2)
+    cash:     List[int] = field(default_factory=lambda: _arr(2))
+    control:  List[int] = field(default_factory=lambda: _arr(2))
+    income:   List[int] = field(default_factory=lambda: _arr(2))
+
+    # DIM SHARED matrix(40, 7)  -- adjacency: matrix[city][1..6] = neighbor cities
+    matrix:   list = field(default_factory=lambda: _arr2d(40, 7))
+
+    # DIM SHARED anima(300), image(300), rating(40)
+    anima:    List[int] = field(default_factory=lambda: _arr(300))
+    image:    List[int] = field(default_factory=lambda: _arr(300))
+    rating:   List[int] = field(default_factory=lambda: _arr(40))
+
+    # DIM SHARED force$(2)
+    force:    List[str] = field(default_factory=lambda: ["NEUTRAL", "Union", "Rebel"])
+
+    # DIM SHARED armyloc(40) .. armymove(40), occupied(40), fort(40)
+    armyloc:  List[int] = field(default_factory=lambda: _arr(40))
+    armyname: List[str] = field(default_factory=lambda: _arr(40, ""))
+    armysize: List[int] = field(default_factory=lambda: _arr(40))
+    armylead: List[int] = field(default_factory=lambda: _arr(40))
+    armyexper:List[int] = field(default_factory=lambda: _arr(40))
+    supply:   List[int] = field(default_factory=lambda: _arr(40))
+    armymove: List[int] = field(default_factory=lambda: _arr(40))
+    occupied: List[int] = field(default_factory=lambda: _arr(40))
+    fort:     List[int] = field(default_factory=lambda: _arr(40))
+
+    # DIM SHARED navyloc(2), navysize(2), navymove(2)
+    navyloc:  List[int] = field(default_factory=lambda: _arr(2))
+    navysize: List[int] = field(default_factory=lambda: _arr(2))
+    navymove: List[int] = field(default_factory=lambda: _arr(2))
+
+    # DIM SHARED victory(2), capcity(2), rr(2), tracks(2), train(2), rrfrom(2)
+    victory:  List[int] = field(default_factory=lambda: _arr(2))
+    capcity:  List[int] = field(default_factory=lambda: _arr(2))
+    rr:       List[int] = field(default_factory=lambda: _arr(2))
+    tracks:   List[int] = field(default_factory=lambda: _arr(2))
+    train:    List[int] = field(default_factory=lambda: _arr(2))
+    rrfrom:   List[int] = field(default_factory=lambda: _arr(2))
+
+    # DIM SHARED vicflag(6), price(3)
+    vicflag:  List[int] = field(default_factory=lambda: _arr(6))
+    price:    List[int] = field(default_factory=lambda: _arr(3))
+
+    # DIM SHARED array(40), brray(40), cityo(40), batwon(2), casualty&(2)
+    array:    List[int] = field(default_factory=lambda: _arr(40))
+    brray:    List[int] = field(default_factory=lambda: _arr(40))
+    cityo:    List[int] = field(default_factory=lambda: _arr(40))
+    batwon:   List[int] = field(default_factory=lambda: _arr(2))
+    casualty: List[int] = field(default_factory=lambda: _arr(2))  # casualty& (LONG)
+
+    # DIM SHARED month$(12), mtx$(21), font$(26), fleet$(2)
+    month_names: List[str] = field(default_factory=lambda: _arr(12, ""))
+    mtx:      List[str] = field(default_factory=lambda: _arr(21, ""))
+    font:     List[str] = field(default_factory=lambda: _arr(26, ""))
+    fleet:    List[str] = field(default_factory=lambda: ["", "", ""])
+
+    # DIM SHARED starx(8), stary(8)
+    starx:    List[int] = field(default_factory=lambda: _arr(8))
+    stary:    List[int] = field(default_factory=lambda: _arr(8))
+
+    # DIM SHARED mtn(1 TO 1564), graphic(1 TO 1564), graft(1 TO 1564)
+    mtn:      List[int] = field(default_factory=lambda: [0] * 1565)
+    graphic:  List[int] = field(default_factory=lambda: [0] * 1565)
+    graft:    List[int] = field(default_factory=lambda: [0] * 1565)
+
+    # DIM SHARED Ncap(60)
+    ncap:     List[int] = field(default_factory=lambda: _arr(60))
+
+    # ── Sprite surfaces (set by vga_sprite.load_all_sprites) ─────────
+    mtn_surface: Any = None           # mountain sprite (mtn.vga)
+    ncap_surface: Any = None          # 13x13 capital city icon (cwsicon.vga)
+    face_surfaces: dict = field(default_factory=dict)   # {1..5: Surface}
+    fort_surfaces: dict = field(default_factory=dict)   # {0..2: Surface}
+
+    # ── Transient rendering state ──────────────────────────────────────
+    _arrow_save: Any = None           # saved pixels under arrow sprite
+    _arrow_save_pos: Optional[tuple] = None
+    _saved_image: Any = None          # saved pixels under icon overlay
+    _saved_image_pos: Optional[tuple] = None
+    _snap_image: Any = None           # saved pixels for snap/restore
+    _anima: Any = None                # animation sprite buffer
+    _skip_scribe_log: bool = False    # suppress next scribe log
+
+    # ── Online multiplayer ──────────────────────────────────────────────
+    my_side: int = 0               # UNION (1) or CONFEDERATE (2); 0 = not in online mode
+    online_client: Any = None      # OnlineClient instance when in online mode
+    event_log: list = field(default_factory=list)  # captured events for online replay
+
+    # ── Side helpers ───────────────────────────────────────────────────────
+    def viewing_side(self) -> int:
+        """Which side the local human player is controlling right now.
+        Solo: same as active side (g.side). Online: always g.my_side."""
+        if self.player == 3:
+            return self.my_side
+        return self.side
+
+    def is_my_turn(self) -> bool:
+        """Can the local player give orders right now?"""
+        if self.player == 3:
+            return self.side == self.my_side
+        return True
+
+    def enemy_of(self, s: int = None) -> int:
+        """Return the opposing side. Defaults to opposing the active side."""
+        if s is None:
+            s = self.side
+        return 3 - s
+
+    def side_name(self, s: int) -> str:
+        """Display name for a side number."""
+        return self.force[s] if 1 <= s <= 2 else "Unknown"
+
+    def side_color(self, s: int) -> int:
+        """Primary VGA color for a side (for text/borders)."""
+        return 9 if s == UNION else 7
+
+
+def strong(g: 'GameState', index: int) -> str:
+    """Return army strength string: armysize * 100. (SUB strong, L229-232)"""
+    return f"{g.armysize[index]}00"

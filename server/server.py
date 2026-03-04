@@ -8,6 +8,8 @@ Run:
 
 from pathlib import Path
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -21,7 +23,27 @@ from models import (
     TurnSubmitRequest, TurnPollResponse, PhaseRequest,
 )
 
-app = FastAPI(title="CWS Online Server")
+MAX_REQUEST_BYTES = 2 * 1024 * 1024  # 2 MB
+
+
+@asynccontextmanager
+async def lifespan(app_: FastAPI):
+    db.init_db()
+    yield
+
+
+app = FastAPI(title="CWS Online Server", lifespan=lifespan)
+
+
+# ── Request size limit ─────────────────────────────────────────────────────
+class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > MAX_REQUEST_BYTES:
+            return Response("Request too large", status_code=413)
+        return await call_next(request)
+
+app.add_middleware(RequestSizeLimitMiddleware)
 
 
 # ── Cross-Origin Isolation headers (required for SharedArrayBuffer) ───────
@@ -38,15 +60,10 @@ app.add_middleware(COIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def startup():
-    db.init_db()
 
 
 def _auth(game_code: str, authorization: Optional[str]) -> int:
@@ -127,9 +144,9 @@ def poll_turn(code: str, authorization: Optional[str] = Header(None)):
 #  Static file serving -- MUST be last (catch-all mount)
 # --------------------------------------------------------------------------- #
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_CLIENT_DIR = _PROJECT_ROOT / "cws-online" / "client"
-_DESKTOP_PY_DIR = _PROJECT_ROOT / "dev" / "python"
-_DATA_DIR = _PROJECT_ROOT
+_CLIENT_DIR = _PROJECT_ROOT / "reference" / "web-client" / "client"
+_DESKTOP_PY_DIR = _PROJECT_ROOT / "src"
+_DATA_DIR = _PROJECT_ROOT / "data"
 
 # Serve desktop Python files at /desktop_py/
 if _DESKTOP_PY_DIR.is_dir():
