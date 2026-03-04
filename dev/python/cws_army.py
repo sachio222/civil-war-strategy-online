@@ -553,7 +553,7 @@ def relieve(g: 'GameState', who: int) -> None:
     g.mtx[0] = "Relieve"                                   # L249
     g.choose = 31                                           # L250
     g.hilite = 11
-    menu(g, 6)                                              # L251
+    menu(g, 10)                                             # L251 (show leadership)
     clrrite(g)
 
     if g.choose < 1:                                        # L253
@@ -580,7 +580,7 @@ def relieve(g: 'GameState', who: int) -> None:
         g.mtx[0] = "New Leader"                             # L272
         g.tlx = 67                                          # L273
         g.tly = 2
-        menu(g, 0)                                          # L274
+        menu(g, 10)                                         # L274 (show leadership)
         clrrite(g)
         if g.choose >= 1:                                   # L275
             break

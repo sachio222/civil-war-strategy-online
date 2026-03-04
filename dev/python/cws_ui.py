@@ -380,6 +380,13 @@ def menu(g: 'GameState', switch: int) -> int:
             )
         elif switch == 6:                                            # L137
             icon(g, g.armyloc[g.array[row]], 0, 9)
+        elif switch == 10:                                           # leadership info
+            idx = g.array[row]
+            s.color(11)
+            s.locate(g.tly + 3 + g.size, g.tlx + 1)
+            s.print_text(" " * 16)
+            s.locate(g.tly + 3 + g.size, g.tlx + 1)
+            s.print_text(f"Leadership: {g.rating[idx]}")
         elif switch == 8:                                            # L138-153
             # Commander face graphic
             if g.graf > 2 and row > 0:

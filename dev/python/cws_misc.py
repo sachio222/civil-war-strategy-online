@@ -49,6 +49,7 @@ def newcity(g: 'GameState', index: int) -> int:
     Original: SUB newcity(index) -- lines 1-41
     """
     from cws_ui import menu, clrrite
+    from cws_map import icon, _clear_arrow
 
     g.mtx[1] = "  "                                                 # L2
     g.mtx[3] = "  "                                                 # L3
@@ -62,7 +63,9 @@ def newcity(g: 'GameState', index: int) -> int:
         g.colour = 3
         g.choose = 23
         g.mtx[2] = g.city[index]                                    # L7
+        icon(g, index, 0, 9)                                         # show arrow on map
         menu(g, 3)                                                   # L8
+        _clear_arrow(g)                                              # remove arrow
         clrrite(g)                                                   # L8
 
         # SELECT CASE choose                                         # L9
