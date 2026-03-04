@@ -361,10 +361,18 @@ def menu(g: 'GameState', switch: int) -> int:
                 s.print_text(" " * 12)
                 s.locate(g.tly + 4 + g.size, g.tlx + 1)             # L129
                 s.print_text(f"Size {g.armysize[target]}00")         # L129-130
+                s.locate(g.tly + 5 + g.size, g.tlx + 1)
+                s.print_text(" " * 12)
+                s.locate(g.tly + 5 + g.size, g.tlx + 1)
+                s.print_text(f"City {g.cityv[g.array[row]]}")
             else:
                 flag = 0                                             # L132
                 s.locate(g.tly + 4 + g.size, g.tlx + 1)             # L133
                 s.print_text(" " * 12)
+                s.locate(g.tly + 5 + g.size, g.tlx + 1)
+                s.print_text(" " * 12)
+                s.locate(g.tly + 5 + g.size, g.tlx + 1)
+                s.print_text(f"City {g.cityv[g.array[row]]}")
         elif switch == 4:                                            # L135
             from cws_army import armystat
             armystat(g, g.array[row])
@@ -378,15 +386,17 @@ def menu(g: 'GameState', switch: int) -> int:
                 f"{g.armyname[idx]}  Exp={g.armyexper[idx]}"
                 f" Cash={g.cash[g.side]}"
             )
+        elif switch == 3:                                            # newcity picker
+            icon(g, g.array[row], 0, 9)
         elif switch == 6:                                            # L137
             icon(g, g.armyloc[g.array[row]], 0, 9)
         elif switch == 10:                                           # leadership info
             idx = g.array[row]
-            s.color(11)
-            s.locate(g.tly + 3 + g.size, g.tlx + 1)
-            s.print_text(" " * 16)
-            s.locate(g.tly + 3 + g.size, g.tlx + 1)
-            s.print_text(f"Leadership: {g.rating[idx]}")
+            s.color(12)
+            s.locate(g.tly + 4 + g.size, g.tlx + 1)
+            s.print_text(" " * 12)
+            s.locate(g.tly + 4 + g.size, g.tlx + 1)
+            s.print_text(f"Ldr {g.rating[idx]}")
         elif switch == 8:                                            # L138-153
             # Commander face graphic
             if g.graf > 2 and row > 0:

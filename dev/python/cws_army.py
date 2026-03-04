@@ -584,6 +584,10 @@ def relieve(g: 'GameState', who: int) -> None:
         clrrite(g)
         if g.choose >= 1:                                   # L275
             break
+        if g.choose == -27:                                 # ESC: abort
+            from cws_map import _clear_arrow
+            _clear_arrow(g)
+            return
 
     g.armymove[index] = -1                                  # L276
     g.armylead[index] = g.rating[g.array[g.choose]]         # L277

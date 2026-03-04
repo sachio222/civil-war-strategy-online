@@ -44,7 +44,7 @@ def _show_launch_screen(render_surface, display_surface, w, h):
 
     title = font.render("CWS: Civil War Strategy Online", True, cyan)
     loading = font_sm.render("Loading...", True, yellow)
-    version = font_sm.render("v1.7", True, dark_gray)
+    version = font_sm.render("v1.7.2", True, dark_gray)
 
     render_surface.blit(title, (w // 2 - title.get_width() // 2, 195))
     render_surface.blit(loading, (w // 2 - loading.get_width() // 2, 245))
