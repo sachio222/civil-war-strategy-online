@@ -80,6 +80,10 @@ def state_to_json(g: 'GameState') -> dict:
             "batwon": [0, g.batwon[1], g.batwon[2]],
             "casualty": [0, g.casualty[1], g.casualty[2]],
             "vicflag": [0] + [g.vicflag[i] for i in range(1, 7)],
+            "difficult": g.difficult,
+            "realism": g.realism,
+            "jancam": g.jancam,
+            "randbal": g.randbal,
         },
         "event_log": g.event_log,
     }
@@ -160,6 +164,10 @@ def state_from_json(g: 'GameState', data: dict) -> None:
     vicflag = extra.get("vicflag", [0, 1, 1865, 30, 0, 1, 3])
     for i in range(1, min(7, len(vicflag))):
         g.vicflag[i] = vicflag[i]
+    g.difficult = extra.get("difficult", g.difficult)
+    g.realism = extra.get("realism", g.realism)
+    g.jancam = extra.get("jancam", g.jancam)
+    g.randbal = extra.get("randbal", g.randbal)
 
     # Load event log (store only, display happens in caller)
     g.event_log = data.get("event_log", [])
@@ -240,6 +248,11 @@ class OnlineClient:
         return self._request("POST", f"/api/games/{self.game_code}/phase",
                              body={"phase": phase, "label": label},
                              auth=True)
+
+    def finish_game(self) -> dict:
+        """POST /api/games/{code}/finish"""
+        return self._request("POST", f"/api/games/{self.game_code}/finish",
+                             body={}, auth=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

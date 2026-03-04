@@ -2054,6 +2054,36 @@ def _online_upload(g: 'GameState') -> bool:
         return False
 
 
+def _show_game_over(g: 'GameState') -> None:
+    """Show game-over screen for the waiting player after opponent confirmed victory."""
+    from cws_map import usa
+    from cws_report import report
+    from cws_misc import capitol, rwin, maxx
+
+    s = g.screen
+    winner = g.thrill  # side that won (set by victor() on opponent's machine)
+    if winner < 1 or winner > 2:
+        winner = 1  # fallback
+
+    # Show the same victory art as victor()
+    s.cls()
+    usa(g)
+    report(g, 100 + g.side)
+
+    if winner == UNION:
+        capitol(g)
+        s.color(15)
+        s.locate(2, 27)
+        s.print_text(f"UNION VICTORY  VP's={g.victory[UNION]}")
+    else:
+        rwin(g)
+        s.color(15)
+        s.locate(2, 27)
+        s.print_text(f"REBEL VICTORY  VP's={g.victory[CONFEDERATE]}")
+
+    maxx(g)
+
+
 def _online_wait(g: 'GameState') -> str:
     """Polling loop: wait for opponent's turn.
     Returns 'ready' when opponent has played, 'disconnect' on ESC,
@@ -2147,6 +2177,10 @@ def _online_wait(g: 'GameState') -> str:
                             state_from_json(g, state_data)
                         if g.event_log:
                             _show_event_replay(g)
+                        # Check if game ended (opponent confirmed victory)
+                        if g.pcode > 0:
+                            _show_game_over(g)
+                            return "finished"
                         return "ready"
 
                     # Not ready yet — check if events phase started
@@ -2351,6 +2385,9 @@ def game_loop(g: 'GameState') -> None:
                 # Online: upload turn, then wait for opponent
                 _gc = g.online_client.game_code if g.online_client else ""
                 if g.my_side == CONFEDERATE:
+                    # Save Confederate's turn events before _newmonth clears them
+                    turn_events = list(g.event_log)
+
                     # Rebel (my_side=2): signal events, run monthly processing
                     month_label = f"{g.month_names[g.month]} {g.year}"
                     try:
@@ -2359,8 +2396,22 @@ def game_loop(g: 'GameState') -> None:
                         pass  # non-critical, proceed anyway
                     restarted = _newmonth(g)
                     if restarted:
+                        # Upload final state so opponent sees game-over
+                        g.side = 1  # set side for Union to receive
+                        _online_upload(g)
+                        try:
+                            g.online_client.finish_game()
+                        except (ConnectionError, AttributeError):
+                            pass
                         clear_session(_gc)
                         break  # restart outer loop
+
+                    # Merge: turn events + monthly items (skip duplicate header/snapshot)
+                    monthly_only = [e for e in g.event_log
+                                    if not (isinstance(e, str) and e.startswith("__month__:"))
+                                    and not (isinstance(e, dict) and e.get("type") == "__snapshot__")]
+                    g.event_log = turn_events + monthly_only
+
                     # After newmonth, it's Union's turn (side 1)
                     g.side = 1
                 else:
