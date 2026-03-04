@@ -79,13 +79,13 @@ https://random-words-here.trycloudflare.com
 
 ## API Endpoints
 
-| Method | Path | Auth | Purpose |
-|--------|------|------|---------|
-| `POST` | `/api/games` | No | Create game -> `{game_code, token, side}` |
-| `POST` | `/api/games/{code}/join` | No | Join game -> `{token, side}` |
-| `GET` | `/api/games/{code}` | No | Game status -> `{status, current_side, turn_number}` |
-| `POST` | `/api/games/{code}/turn` | Bearer | Submit completed turn |
-| `GET` | `/api/games/{code}/turn` | Bearer | Poll for opponent's turn |
+| Method | Path                     | Auth   | Purpose                                              |
+| ------ | ------------------------ | ------ | ---------------------------------------------------- |
+| `POST` | `/api/games`             | No     | Create game -> `{game_code, token, side}`            |
+| `POST` | `/api/games/{code}/join` | No     | Join game -> `{token, side}`                         |
+| `GET`  | `/api/games/{code}`      | No     | Game status -> `{status, current_side, turn_number}` |
+| `POST` | `/api/games/{code}/turn` | Bearer | Submit completed turn                                |
+| `GET`  | `/api/games/{code}/turn` | Bearer | Poll for opponent's turn                             |
 
 Interactive API docs available at `http://<server>:1861/docs`.
 
@@ -99,9 +99,9 @@ Interactive API docs available at `http://<server>:1861/docs`.
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `server.py` | FastAPI app with all endpoints |
-| `database.py` | SQLite schema and CRUD operations |
-| `models.py` | Pydantic request/response models |
-| `requirements.txt` | Python dependencies |
+| File               | Purpose                           |
+| ------------------ | --------------------------------- |
+| `server.py`        | FastAPI app with all endpoints    |
+| `database.py`      | SQLite schema and CRUD operations |
+| `models.py`        | Pydantic request/response models  |
+| `requirements.txt` | Python dependencies               |

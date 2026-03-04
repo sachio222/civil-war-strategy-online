@@ -106,7 +106,7 @@
 
               /* Brief delay so user can see the code, then redirect */
               setTimeout(function () {
-                storeAndRedirect(data.game_code, data.player_token, data.side);
+                storeAndRedirect(data.game_code, data.token, data.side);
               }, 1500);
             })
             .catch(function (err) {
@@ -128,10 +128,9 @@
           btnJoin.disabled = true;
           setStatus(joinStatus, "Joining game...", false);
 
-          fetch(API_BASE + "/games/join", {
+          fetch(API_BASE + "/games/" + code + "/join", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ game_code: code }),
           })
             .then(function (res) {
               if (!res.ok)
@@ -141,7 +140,7 @@
               return res.json();
             })
             .then(function (data) {
-              storeAndRedirect(data.game_code, data.player_token, data.side);
+              storeAndRedirect(code, data.token, data.side);
             })
             .catch(function (err) {
               setStatus(joinStatus, err.message, true);
