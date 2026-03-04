@@ -227,7 +227,7 @@ def _newgame_init(g: 'GameState', replay: int) -> None:
     s.locate(28, 17)
     s.print_text("Dave Mackey, and J. Krajewski")
     s.locate(27, 72)                                        # L67
-    s.print_text("v1.7")
+    s.print_text("v1.7.3")
     s.line(190, 170, 440, 260, 1, "B")                     # L68
     s.line(180, 180, 450, 250, 7, "B")                     # L69
     flags(g, 1, -440, 0)                                    # L70
@@ -789,6 +789,7 @@ def _utility_menu(g: 'GameState') -> None:
             if g.player >= 2:                               # L421
                 return  # GOTO menu0
             g.side = g.enemy_of()                            # L422
+            g.rflag = 0
             s.color(g.side_color(g.side))
             clrbot(g)                                       # L423
             s.print_text(f"Now playing {g.force[g.side]} side")
@@ -2406,10 +2407,9 @@ def game_loop(g: 'GameState') -> None:
                         clear_session(_gc)
                         break  # restart outer loop
 
-                    # Merge: turn events + monthly items (skip duplicate header/snapshot)
+                    # Merge: turn events + monthly items (skip duplicate header)
                     monthly_only = [e for e in g.event_log
-                                    if not (isinstance(e, str) and e.startswith("__month__:"))
-                                    and not (isinstance(e, dict) and e.get("type") == "__snapshot__")]
+                                    if not (isinstance(e, str) and e.startswith("__month__:"))]
                     g.event_log = turn_events + monthly_only
 
                     # After newmonth, it's Union's turn (side 1)
